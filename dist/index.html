@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#131918"><meta name="description" content="Tilt, balance, and counter-steer a marble through a tabletop maze. A browser physics prototype with touch controls and sensor diagnostics.">
+  <title>Marble Lab · Tilt & balance</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23131918'/%3E%3Cpath d='M7 7h18v9H14v9H7z' fill='none' stroke='%23c9a46c' stroke-width='3'/%3E%3Ccircle cx='23' cy='24' r='4' fill='%23b7e7d4'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="header"><h1>MARBLE<span>LAB</span></h1><div class="header-actions"><span class="prototype">PROTOTYPE 01</span><button id="settingsButton" class="icon-button" aria-label="Open settings">⚙</button><button id="debugButton" class="text-button">Diagnostics</button></div></header>
+    <div class="game-layout">
+      <section class="play-area" aria-label="Marble maze">
+        <div class="scorebar"><span id="presetLabel">CLASSIC</span><span><b id="time">00:00.0</b> <small>TIME</small></span><span><b id="falls">0</b> <small>FALLS</small></span></div>
+        <div class="board-wrap"><canvas id="board" width="600" height="720" aria-label="Marble maze. Use the touch pad, arrow keys, or enable phone tilt to reach the green goal."></canvas><div id="boardMessage" class="board-message"><strong id="boardTitle">Find your balance.</strong><span id="boardSubtitle">Reach the green ring. Counter-tilt to brake.</span></div></div>
+        <div class="board-foot"><span>01 / THE LONG WAY HOME</span><span id="stateLabel">READY</span></div>
+      </section>
+      <aside class="controls" aria-label="Game controls">
+        <div class="control-heading"><div class="eyebrow">YOUR MOVE</div><h2>Tilt. Roll. Brake.</h2><p>Small movements. Real momentum.</p></div>
+        <div class="mode-row" role="group" aria-label="Control method"><button id="touchButton" class="mode-button selected" aria-pressed="true">Touch</button><button id="tiltButton" class="mode-button" aria-pressed="false">Enable tilt</button></div>
+        <p id="inputStatus" class="input-status" role="status" aria-live="polite">Drag the pad to accelerate. Release to coast.</p>
+        <div class="input-surface"><div id="pad" class="pad" role="group" aria-label="Touch steering pad. Drag from the centre to accelerate; release to coast."><span class="pad-axis horizontal"></span><span class="pad-axis vertical"></span><span class="pad-ring"></span><span id="padKnob" class="pad-knob"></span><span class="pad-label">ACCELERATE</span></div><div class="tilt-readout"><span id="inputLabel">VIRTUAL TILT</span><strong><span id="tiltMagnitude">0.0</span><small>°</small></strong><div id="inputHint">Arrow keys also work.</div><button id="calibrate" class="text-button" disabled>Calibrate</button></div></div>
+        <div class="play-buttons"><button id="play" class="primary">Play</button><button id="restart" class="secondary" aria-label="Restart maze">Restart</button></div>
+        <div class="instructions"><div><i>01</i><span>Guide the marble around the dark holes.</span></div><div><i>02</i><span>Tilt back to slow down before a turn.</span></div><div><i>03</i><span>Settle inside the green ring to finish.</span></div></div>
+        <div class="control-footer"><span id="presetDescription">Low damping · acceleration control</span><button id="fullscreen" class="text-button">Full screen</button></div>
+      </aside>
+    </div>
+  </main>
+  <dialog id="settings" aria-labelledby="settingsTitle"><div class="dialog-head"><h2 id="settingsTitle">Tune the feel</h2><button class="close" data-close="settings" aria-label="Close settings">×</button></div>
+    <label for="preset">Preset</label><select id="preset"><option value="classic">Classic — low damping</option><option value="gentle">Forgiving — more damping</option></select><p>Both use acceleration control. Forgiving adds damping, shrinks the effective capture region, and restarts faster.</p>
+    <label for="sensitivity">Sensitivity <output id="sensitivityValue">1.0×</output></label><input id="sensitivity" type="range" min="0.4" max="1.8" step="0.1" value="1">
+    <label for="smoothing">Tilt smoothing <output id="smoothingValue">20 ms</output></label><input id="smoothing" type="range" min="0" max="30" step="5" value="20"><p>Filter time constant. Lower values respond faster; higher values soften sensor noise.</p>
+    <button id="settingsFullscreen" class="secondary">Full screen & orientation lock</button><p id="screenStatus">Screen axes are remapped automatically.</p><p class="note">For phone tilt, open this page directly in Safari or Chrome. Use “Enable tilt”, hold a comfortable viewing angle, then calibrate. If access was declined, check the browser’s motion settings; Safari may require clearing this site’s data before asking again.</p>
+  </dialog>
+  <dialog id="diagnostics" aria-labelledby="diagnosticsTitle"><div class="dialog-head"><h2 id="diagnosticsTitle">Motion diagnostics</h2><button class="close" data-close="diagnostics" aria-label="Close diagnostics">×</button></div>
+    <div class="legend"><span class="raw-legend">Raw</span><span class="filtered-legend">Filtered</span><span>Solid X · dashed Y · ±18°</span></div><canvas id="trace" width="760" height="200" aria-label="Recent raw and filtered tilt traces"></canvas>
+    <dl id="metrics"></dl><p class="note">Event age measures browser delivery to a rendered frame, not physical sensor-to-photon latency. Timestamps cannot expose the sensor’s internal delay. *Orientation events may be change-driven: their delivered rate is not the hardware sampling rate. Hold at a comfortable pitch, calibrate, then make a quick tilt step to inspect the response.</p>
+    <div class="diagnostic-actions"><button id="exportLog" class="secondary">Export timing CSV</button><button id="clearLog" class="text-button">Clear trace</button></div>
+    <details><summary>Physics & phone test notes</summary><p>240 Hz fixed steps with bounded sub-steps, 50 ms frame-gap clamp, and manual resume after hiding. Ball radius 7.5 mm; board 300 × 360 mm; speed limited to 0.85 m/s. Wall impacts use normal restitution and tangential loss; spin is omitted.</p><p>Hole capture integrates unsupported crossing time and compares it with √(2h/g), using an effective 4 mm catch depth and an unsupported radius of hole radius minus ball radius. Fast crossings can skip a hole. This is an explicit rim approximation, not a full 3D contact simulation.</p><p>Test Safari on an iPhone and Chrome on an Android phone, preferably a model without a gyroscope. Calibrate pitched at about 35°, turn in your chair, check all screen orientations, try a sharp tilt step, then switch apps and resume. Sensor presence alone does not identify the hardware or fusion algorithm.</p></details>
+  </dialog>
+  <script type="module" src="app.js"></script>
+</body></html>
