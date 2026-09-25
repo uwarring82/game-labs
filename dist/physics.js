@@ -1,5 +1,5 @@
-import { G, BALLS, CONTACTS, granularState, restitution } from './materials.js';
-export { BALLS, CONTACTS, SURFACES, granularState } from './materials.js';
+import { G, AIR, BALLS, CONTACTS, WALL_CONTACTS, granularState, restitution } from './materials.js';
+export { BALLS, CONTACTS, WALL_CONTACTS, WALL_MATERIALS, SURFACES, granularState } from './materials.js';
 export const W=.30,H=.36,R=.0075,STEP=1/240,MAX_TILT=28;
 export const START={x:.041,y:.043};
 export const GOAL={x:.260,y:.319,r:.019};
@@ -25,10 +25,18 @@ export function gravity(tilt){
   const scale=length?G*Math.sin(theta)/length:0;
   return {x:scale*tilt.x,y:scale*tilt.y,z:-G*Math.cos(theta)};
 }
-export function newBall(material='steel',surface='wood'){
-  const p=BALLS[material];if(!p||!CONTACTS[material][surface])throw new Error('Unknown material or surface');
-  const r=p.radius,m=4/3*Math.PI*r**3*p.density;
-  return {...START,z:r,vx:0,vy:0,vz:0,wx:0,wy:0,wz:0,q:[1,0,0,0],r,m,I:p.inertiaRatio*m*r*r,density:p.density,material,surface,grounded:true,slip:0,regime:'rest',impacts:0,skipped:0,overHole:null};
+const layouts=new Map();
+export function layoutFor(material='steel'){
+  if(layouts.has(material))return layouts.get(material);
+  const scale=BALLS[material].radius/R;
+  const scaleObject=o=>Object.fromEntries(Object.entries(o).map(([k,v])=>[k,v*scale]));
+  const layout={scale,width:W*scale,height:H*scale,start:scaleObject(START),goal:scaleObject(GOAL),walls:WALLS.map(w=>({...scaleObject(w),bottom:-.025*scale})),holes:HOLES.map(scaleObject)};
+  layouts.set(material,layout);return layout;
+}
+export function newBall(material='steel',surface='wood',wallMaterial='wood'){
+  const p=BALLS[material];if(!p||!CONTACTS[material][surface]||!WALL_CONTACTS[material][wallMaterial])throw new Error('Unknown material or surface');
+  const r=p.radius,m=p.mass??4/3*Math.PI*r**3*p.density;
+  return {...layoutFor(material).start,z:r,vx:0,vy:0,vz:0,wx:0,wy:0,wz:0,q:[1,0,0,0],r,m,I:p.inertiaRatio*m*r*r,density:m/(4/3*Math.PI*r**3),material,surface,wallMaterial,grounded:true,slip:0,regime:'rest',impacts:0,skipped:0,overHole:null};
 }
 export function kineticEnergy(b){return .5*b.m*(b.vx*b.vx+b.vy*b.vy+b.vz*b.vz)+.5*b.I*(b.wx*b.wx+b.wy*b.wy+b.wz*b.wz);}
 export function contactVelocity(b,n){
@@ -58,8 +66,8 @@ export function contactImpulse(b,n,p,{bounce=true}={}){
   if(impact)b.impacts++;
   return jn;
 }
-export function resolveWall(b,w,p=CONTACTS[b.material].wood){
-  const top=w.height??.018,bottom=-.025;
+export function resolveWall(b,w,p=WALL_CONTACTS[b.material][b.wallMaterial]){
+  const top=w.height??.018,bottom=w.bottom??-.025;
   const closest={x:clamp(b.x,w.x,w.x+w.w),y:clamp(b.y,w.y,w.y+w.h),z:clamp(b.z,bottom,top)};
   let dx=b.x-closest.x,dy=b.y-closest.y,dz=b.z-closest.z,d=Math.hypot(dx,dy,dz),depth;
   if(d>=b.r)return false;
@@ -73,7 +81,7 @@ export function resolveWall(b,w,p=CONTACTS[b.material].wood){
   return true;
 }
 function openingAt(x,y,holes){return holes.findIndex(h=>Math.hypot(x-h.x,y-h.y)<h.r);}
-function floorContact(b,holes,p,wallProfile){
+function floorContact(b,holes,p,rimProfile){
   const opening=openingAt(b.x,b.y,holes);
   if(opening<0){
     if(b.z<=b.r+1e-9){b.z=Math.max(b.r,b.z);contactImpulse(b,{x:0,y:0,z:1},p);return b.vz<.02;}
@@ -87,7 +95,7 @@ function floorContact(b,holes,p,wallProfile){
   if(dist<b.r){
     const n={x:-gap*dx/d/dist,y:-gap*dy/d/dist,z:dz/dist},pen=b.r-dist;
     b.x+=n.x*(pen+1e-9);b.y+=n.y*(pen+1e-9);b.z+=n.z*(pen+1e-9);
-    contactImpulse(b,n,wallProfile);
+    contactImpulse(b,n,rimProfile);
   }
   return false;
 }
@@ -110,9 +118,16 @@ function rotate(b,dt){
   const next=[c*a-x*u-y*v-z*t,c*u+x*a+y*t-z*v,c*v-x*t+y*a+z*u,c*t+x*v-y*u+z*a];
   const norm=Math.hypot(...next);b.q=next.map(n=>n/norm);
 }
+export function airDrag(b,dt){
+  // Exact velocity decay for F=-c|v|v during the drag substep. Passive, no cap.
+  const speed=Math.hypot(b.vx,b.vy,b.vz),c=.5*AIR.density*AIR.dragCoefficient*Math.PI*b.r*b.r;
+  const factor=1/(1+c*speed*dt/b.m);b.vx*=factor;b.vy*=factor;b.vz*=factor;
+}
 export function advance(b,tilt,dt,options={}){
-  const walls=options.walls??WALLS,holes=options.holes??HOLES;
-  const p=options.floorProfile??CONTACTS[b.material][b.surface],wallProfile=options.wallProfile??CONTACTS[b.material].wood;
+  const layout=layoutFor(b.material),goal=layout.goal;
+  const walls=options.walls??layout.walls,holes=options.holes??layout.holes;
+  const p=options.floorProfile??CONTACTS[b.material][b.surface],wallProfile=options.wallProfile??WALL_CONTACTS[b.material][b.wallMaterial];
+  const rimProfile=options.rimProfile??CONTACTS[b.material].wood;
   const granular=options.granular===false?null:b.surface==='sand'?granularState(b):null;
   const g=gravity(tilt),normal=-g.z*b.m;
   let remaining=dt;
@@ -127,11 +142,12 @@ export function advance(b,tilt,dt,options={}){
     if(held){b.vx=0;b.vy=0;b.wx=0;b.wy=0;}
     else {b.vx+=g.x*h;b.vy+=g.y*h;}
     b.vz+=g.z*h;
+    if(options.air!==false)airDrag(b,h);
     if(onFloor)rollingLoss(b,normal,h,p,granular);
     b.x+=b.vx*h;b.y+=b.vy*h;b.z+=b.vz*h;
     for(let i=0;i<3;i++){
       for(const wall of walls)resolveWall(b,wall,wallProfile);
-      const supported=floorContact(b,holes,p,wallProfile);
+      const supported=floorContact(b,holes,p,rimProfile);
       if(i===2)b.grounded=supported;
     }
     rotate(b,h);
@@ -140,8 +156,8 @@ export function advance(b,tilt,dt,options={}){
     else if(b.overHole!==null){b.skipped++;b.overHole=null;}
     const u=contactVelocity(b,{x:0,y:0,z:1});b.slip=Math.hypot(u.x,u.y);
     b.regime=b.grounded?(Math.hypot(b.vx,b.vy)<2e-5&&Math.hypot(b.wx,b.wy)*b.r<2e-5?'rest':b.slip>.002?'sliding':'rolling'):'airborne';
-    if(options.goal!==false&&b.grounded&&Math.hypot(b.x-GOAL.x,b.y-GOAL.y)<GOAL.r-b.r&&Math.hypot(b.vx,b.vy)<.08)return{type:'win'};
-    if(b.x<-b.r||b.x>W+b.r||b.y<-b.r||b.y>H+b.r){if(options.bounds!==false)return{type:'escape'};}
+    if(options.goal!==false&&b.grounded&&Math.hypot(b.x-goal.x,b.y-goal.y)<goal.r-b.r&&Math.hypot(b.vx,b.vy)<.08)return{type:'win'};
+    if(b.x<-b.r||b.x>layout.width+b.r||b.y<-b.r||b.y>layout.height+b.r){if(options.bounds!==false)return{type:'escape'};}
   }
   return null;
 }

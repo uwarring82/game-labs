@@ -1,9 +1,9 @@
-import { W, H, R, START, GOAL, WALLS, HOLES, BALLS, SURFACES, STEP, MAX_TILT, clamp, tiltVector, filtered, newBall, advance, FixedClock, kineticEnergy, granularState } from './physics.js';
+import { W, H, R, START, GOAL, WALLS, HOLES, BALLS, SURFACES, WALL_MATERIALS, layoutFor, STEP, MAX_TILT, clamp, tiltVector, filtered, newBall, advance, FixedClock, kineticEnergy, granularState } from './physics.js';
 
 const $ = id => document.getElementById(id);
 const canvas = $('board'), ctx = canvas.getContext('2d');
 const trace = $('trace'), tc = trace.getContext('2d');
-let material = 'steel', surface = 'wood', ball = newBall(), phase = 'ready', mode = 'touch';
+let material = 'steel', surface = 'wood', wallMaterial = 'wood', ball = newBall(), phase = 'ready', mode = 'touch';
 const tau = 0.015, RESTART_MS = 800;
 let elapsed = 0, falls = 0, neutral = null, latest = null, requested = false, permission = 'Not requested';
 let raw = { x: 0, y: 0 }, smooth = { x: 0, y: 0 }, touch = { x: 0, y: 0 };
@@ -14,7 +14,7 @@ const keys = new Set(), clock = new FixedClock();
 const clockText = t => `${String(Math.floor(t / 60)).padStart(2,'0')}:${(t % 60).toFixed(1).padStart(4,'0')}`;
 function screenAngle() { return Number(screen.orientation?.angle ?? window.orientation ?? 0); }
 function record(type, now, eventTime = '') {
-  rows.push([type, (now-recordStart).toFixed(3), eventTime === '' ? '' : (eventTime-recordStart).toFixed(3), raw.x.toFixed(4), raw.y.toFixed(4), smooth.x.toFixed(4), smooth.y.toFixed(4), phase, mode, orientation, material, surface, ...[ball.x,ball.y,ball.z,ball.vx,ball.vy,ball.vz,ball.wx,ball.wy,ball.wz,kineticEnergy(ball),ball.slip].map(n=>n.toPrecision(7)),ball.regime]);
+  rows.push([type, (now-recordStart).toFixed(3), eventTime === '' ? '' : (eventTime-recordStart).toFixed(3), raw.x.toFixed(4), raw.y.toFixed(4), smooth.x.toFixed(4), smooth.y.toFixed(4), phase, mode, orientation, material, surface, wallMaterial, ...[ball.x,ball.y,ball.z,ball.vx,ball.vy,ball.vz,ball.wx,ball.wy,ball.wz,kineticEnergy(ball),ball.slip].map(n=>n.toPrecision(7)),ball.regime]);
   if (rows.length > 12000) rows.splice(0, 2000);
 }
 function message(title, subtitle) { $('boardTitle').textContent = title; $('boardSubtitle').textContent = subtitle; $('boardMessage').hidden = !title; }
@@ -29,19 +29,25 @@ function updateControls() {
   $('play').textContent = phase === 'running' ? 'Pause' : phase === 'paused' ? 'Resume' : phase === 'won' ? 'Again' : 'Play';
   $('play').disabled = phase === 'falling' || (mode === 'tilt' && (!neutral || !latest || !!calibrationSamples));
   $('stateLabel').textContent = ({ ready:'READY', running:'IN PLAY', paused:'PAUSED', falling:'TRY AGAIN', won:'COMPLETE' })[phase];
-  $('presetLabel').textContent = `${material === 'steel' ? 'STEEL' : 'RUBBER'} / ${surface === 'wood' ? 'WOOD' : 'SAND'}`;
-  $('presetDescription').textContent = `${BALLS[material].name} · ${SURFACES[surface].name}`;
-  $('materialDescription').textContent = `${BALLS[material].description}. Diameter 15 mm, mass ${(ball.m*1000).toFixed(1)} g.`;
+  $('presetLabel').textContent = `${BALLS[material].short} / ${SURFACES[surface].name.toUpperCase()}`;
+  if(document.body.dataset.surface!==surface)document.body.dataset.surface=surface;
+  if(document.body.dataset.wall!==wallMaterial)document.body.dataset.wall=wallMaterial;
+  const layout=layoutFor(material);
+  $('sceneName').textContent=SURFACES[surface].scene;
+  $('boardDimensions').textContent=`${(layout.width*100).toFixed(0)} × ${(layout.height*100).toFixed(0)} cm board`;
+  $('wallDescription').textContent=WALL_MATERIALS[wallMaterial].description;
+  $('presetDescription').textContent = `${BALLS[material].name} · ${SURFACES[surface].name} · ${WALL_MATERIALS[wallMaterial].name}`;
+  $('materialDescription').textContent = `${BALLS[material].description}. Diameter ${(ball.r*2000).toFixed(2).replace(/\.?0+$/,'')} mm, mass ${(ball.m*1000).toFixed(1)} g.`;
   $('surfaceDescription').textContent = SURFACES[surface].description;
 }
 function stopInput() { keys.clear(); touch = { x:0, y:0 }; pointer = null; }
 function pause(reason = 'Your move, when you’re ready.') {
   if (phase === 'running') { phase = 'paused'; message('Take a breath.', reason); }
-  if (phase === 'falling') { ball = newBall(material,surface); trail = []; phase = 'paused'; fallHole = null; message('Ready to try again?', reason); }
+  if (phase === 'falling') { ball = newBall(material,surface,wallMaterial); trail = []; phase = 'paused'; fallHole = null; message('Ready to try again?', reason); }
   stopInput(); clock.reset(); updateControls();
 }
 function restart() {
-  ball = newBall(material,surface); elapsed = 0; falls = 0; trail = []; phase = 'ready'; fallHole = null; clock.reset();
+  ball = newBall(material,surface,wallMaterial); elapsed = 0; falls = 0; trail = []; phase = 'ready'; fallHole = null; clock.reset();
   smooth = { x:0, y:0 }; stopInput(); message('Find your balance.', 'Reach the green ring. Counter-tilt to brake.'); updateControls();
 }
 function togglePlay() {
@@ -151,6 +157,7 @@ for(const name of ['settings','diagnostics']) {
 }
 $('ballMaterial').addEventListener('change',e=>{material=e.target.value;restart();});
 $('floorMaterial').addEventListener('change',e=>{surface=e.target.value;restart();});
+$('wallMaterial').addEventListener('change',e=>{wallMaterial=e.target.value;restart();});
 async function fullscreen() {
   try {
     if(document.fullscreenElement){await document.exitFullscreen();return;}
@@ -163,8 +170,8 @@ async function fullscreen() {
 $('fullscreen').addEventListener('click',fullscreen);$('settingsFullscreen').addEventListener('click',fullscreen);
 $('clearLog').addEventListener('click',()=>{rows=[];graph=[];recordStart=performance.now();});
 $('exportLog').addEventListener('click',()=>{
-  const meta=[`# Marble Lab; model=2; tau_ms=${tau*1000}; fixed_step_s=${STEP}`,`# neutral_beta=${neutral?.beta??''}; neutral_gamma=${neutral?.gamma??''}; browser=${navigator.userAgent}`, '# JS timestamps are not end-to-end sensor latency; ball variables are simulated SI values.'];
-  const csv=[...meta,'kind,received_or_frame_ms,event_timestamp_ms,raw_x_deg,raw_y_deg,filtered_x_deg,filtered_y_deg,state,input,screen_angle_deg,ball_material,surface,x_m,y_m,z_m,vx_m_s,vy_m_s,vz_m_s,omega_x_rad_s,omega_y_rad_s,omega_z_rad_s,kinetic_energy_J,slip_m_s,contact_regime',...rows.map(r=>r.join(','))].join('\n');
+  const meta=[`# Marble Lab; model=3; tau_ms=${tau*1000}; fixed_step_s=${STEP}`,`# neutral_beta=${neutral?.beta??''}; neutral_gamma=${neutral?.gamma??''}; browser=${navigator.userAgent}`, '# JS timestamps are not end-to-end sensor latency; ball variables are simulated SI values.'];
+  const csv=[...meta,'kind,received_or_frame_ms,event_timestamp_ms,raw_x_deg,raw_y_deg,filtered_x_deg,filtered_y_deg,state,input,screen_angle_deg,ball_material,surface,wall_material,x_m,y_m,z_m,vx_m_s,vy_m_s,vz_m_s,omega_x_rad_s,omega_y_rad_s,omega_z_rad_s,kinetic_energy_J,slip_m_s,contact_regime',...rows.map(r=>r.join(','))].join('\n');
   const url=URL.createObjectURL(new Blob([csv],{type:'text/csv'})),a=document.createElement('a');a.href=url;a.download='marble-lab-timing.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 });
 
@@ -172,46 +179,70 @@ $('exportLog').addEventListener('click',()=>{
 function rounded(x,y,w,h,r,fill,stroke) {ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=.0007;ctx.stroke();}}
 function circle(x,y,r,fill) {ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=fill;ctx.fill();}
 function draw(now) {
+  const scale=layoutFor(material).scale;
   const rect=canvas.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,2);
   const cw=Math.max(1,Math.round(rect.width*dpr)),ch=Math.max(1,Math.round(rect.height*dpr));
   if(canvas.width!==cw||canvas.height!==ch){canvas.width=cw;canvas.height=ch;}
   ctx.setTransform(cw/W,0,0,ch/H,0,0);ctx.clearRect(0,0,W,H);
   const board=ctx.createLinearGradient(0,0,W,H);
-  if(surface==='wood'){board.addColorStop(0,'#d9bb85');board.addColorStop(.5,'#caa56d');board.addColorStop(1,'#b58b54');}
-  else{board.addColorStop(0,'#dbccaa');board.addColorStop(1,'#beac85');}
+  const palette={wood:['#dfbd85','#b98c52'],sand:['#ead7a7','#c1a56e'],ice:['#d9f4fa','#72b6d0'],baize:['#187763','#064a41']}[surface];
+  board.addColorStop(0,palette[0]);board.addColorStop(1,palette[1]);
   ctx.fillStyle=board;ctx.fillRect(0,0,W,H);
   if(surface==='sand'){
     // Stable terrain marks identify the granular surface; no random forces.
     for(let i=1;i<=500;i++){const x=((i*137.508)%997)/997*W,y=((i*283.731)%991)/991*H;ctx.fillStyle=i%2?'#8c775544':'#fff3d755';ctx.fillRect(x,y,.00045,.00045);}
+  }
+  if(surface==='wood'){
+    ctx.lineWidth=.0003;ctx.strokeStyle='#70502d18';
+    for(let i=0;i<26;i++){const x=i*.013;ctx.beginPath();ctx.moveTo(x,0);ctx.bezierCurveTo(x+.004,.12,x-.003,.24,x+.003,H);ctx.stroke();}
+  }
+  if(surface==='ice'){
+    ctx.lineWidth=.0007;ctx.strokeStyle='#ffffff4d';
+    for(let i=0;i<13;i++){const x=(i*.073)%W,y=(i*.109)%H;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+.031,y+.020);ctx.lineTo(x+.023,y+.041);ctx.moveTo(x+.031,y+.020);ctx.lineTo(x+.051,y+.019);ctx.stroke();}
+    const gleam=ctx.createLinearGradient(0,H,W,0);gleam.addColorStop(0,'#ffffff00');gleam.addColorStop(.45,'#ffffff00');gleam.addColorStop(.52,'#ffffff44');gleam.addColorStop(.61,'#ffffff00');ctx.fillStyle=gleam;ctx.fillRect(0,0,W,H);
+  }
+  if(surface==='baize'){
+    ctx.lineWidth=.00025;ctx.strokeStyle='#bdffe014';
+    for(let y=0;y<H;y+=.002){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y-.015);ctx.stroke();}
+    ctx.strokeStyle='#003b321a';for(let x=0;x<W;x+=.002){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x+.03,H);ctx.stroke();}
   }
   // Fine ruler marks at the perimeter provide a quiet, instrument-like scale.
   ctx.strokeStyle='#6a4b2929';ctx.lineWidth=.0005;
   for(let x=.02;x<W-.01;x+=.01){ctx.beginPath();ctx.moveTo(x,.011);ctx.lineTo(x,.013);ctx.stroke();}
   ctx.setLineDash([.001,.003]);ctx.strokeStyle='#714e3525';ctx.lineWidth=.0007;
   for(const y of [.046,.137,.223,.312]){ctx.beginPath();ctx.moveTo(.022,y);ctx.lineTo(.28,y);ctx.stroke();}ctx.setLineDash([]);
-  ctx.font='500 .0065px system-ui';ctx.fillStyle='#705334';ctx.textAlign='left';ctx.fillText('START',.023,.025);
+  ctx.font='500 .0065px system-ui';ctx.fillStyle=surface==='baize'?'#d2e4bc':surface==='ice'?'#245776':'#705334';ctx.textAlign='left';ctx.fillText('START',.023,.025);
   ctx.strokeStyle='#70533488';ctx.lineWidth=.0008;ctx.beginPath();ctx.arc(START.x,START.y,R+.004,0,Math.PI*2);ctx.stroke();
   for(const hole of HOLES){circle(hole.x,hole.y+.0008,hole.r+.002,'#ead0a066');circle(hole.x,hole.y,hole.r+.001,'#82572e');const grad=ctx.createRadialGradient(hole.x-.004,hole.y-.005,.002,hole.x,hole.y,hole.r);grad.addColorStop(0,'#080e0b');grad.addColorStop(.65,'#182019');grad.addColorStop(1,'#49351f');circle(hole.x,hole.y,hole.r,grad);}
-  circle(GOAL.x,GOAL.y,GOAL.r,'#507159');ctx.lineWidth=.0015;ctx.strokeStyle='#c6e6b7';ctx.beginPath();ctx.arc(GOAL.x,GOAL.y,GOAL.r-.003,0,Math.PI*2);ctx.stroke();
+  circle(GOAL.x,GOAL.y,GOAL.r,surface==='baize'?'#ad8348':'#507159');ctx.lineWidth=.0015;ctx.strokeStyle='#c6e6b7';ctx.beginPath();ctx.arc(GOAL.x,GOAL.y,GOAL.r-.003,0,Math.PI*2);ctx.stroke();
   ctx.fillStyle='#e0edd2';ctx.font='600 .0055px system-ui';ctx.textAlign='center';ctx.fillText('HOME',GOAL.x,GOAL.y+.002);
-  for(const w of WALLS){rounded(w.x+.001,w.y+.0025,w.w,w.h,.0015,'#74502777');rounded(w.x,w.y,w.w,w.h,.0013,'#906d40','#b69560');ctx.fillStyle='#efd3a288';ctx.fillRect(w.x+.001,w.y,w.w-.002,.0008);}
+  for(const w of WALLS){const rubber=wallMaterial==='rubber';rounded(w.x+.001,w.y+.0025,w.w,w.h,.0015,'#12272366');rounded(w.x,w.y,w.w,w.h,rubber?.0025:.0013,rubber?'#a94237':'#906d40',rubber?'#ed9079':'#b69560');ctx.fillStyle=rubber?'#ffbf9c66':'#efd3a288';ctx.fillRect(w.x+.001,w.y,w.w-.002,.0008);if(rubber){ctx.strokeStyle='#6c2929';ctx.lineWidth=.0005;ctx.strokeRect(w.x+.0015,w.y+.0015,w.w-.003,w.h-.003);}}
   if(trail.length>1){ctx.beginPath();ctx.moveTo(trail[0].x,trail[0].y);for(const t of trail)ctx.lineTo(t.x,t.y);ctx.strokeStyle='#f8edca24';ctx.lineWidth=.0017;ctx.stroke();}
-  let bx=ball.x,by=ball.y,r=ball.r,opacity=1;
+  let bx=ball.x/scale,by=ball.y/scale,r=ball.r/scale,opacity=1;
   if(phase==='falling'){const t=clamp((now-fallStarted)/RESTART_MS,0,1);if(fallHole!==null){const h=HOLES[fallHole];bx+=(h.x-bx)*t;by+=(h.y-by)*t;}r*=1-.85*t;opacity=1-t;}
-  const lift=Math.max(0,ball.z-ball.r);
+  const lift=Math.max(0,ball.z-ball.r)/scale;
   ctx.globalAlpha=opacity*Math.exp(-lift/.035);circle(bx+.0015+lift*.32,by+.0022+lift*.4,r*1.06+lift*.12,'#2d221b66');
   // Hide a submerged ball progressively inside the actual aperture.
   ctx.save();if(ball.overHole!==null){const h=HOLES[ball.overHole];ctx.beginPath();ctx.arc(h.x,h.y,h.r,0,Math.PI*2);if(ball.z<0)ctx.clip();}
   ctx.globalAlpha=opacity*(ball.z<0?clamp(1+ball.z/ball.r,.05,1):1);
   const shine=ctx.createRadialGradient(bx-r*.36,by-r*.42,r*.06,bx,by,r);
   if(material==='steel'){shine.addColorStop(0,'#ffffff');shine.addColorStop(.22,'#e4eae7');shine.addColorStop(.48,'#9aa9a5');shine.addColorStop(.69,'#4d5e58');shine.addColorStop(.85,'#b8c4bf');shine.addColorStop(1,'#45584f');}
-  else{shine.addColorStop(0,'#b2caff');shine.addColorStop(.4,'#6593ee');shine.addColorStop(1,'#264a94');}
+  else{const colors={rubber:['#b2caff','#6593ee','#264a94'],pingpong:['#ffffff','#f6f2e5','#b8b6af'],cork:['#e6c094','#bd8650','#795430'],billiard:['#ffffff','#f1e6c9','#9d926f']}[material];shine.addColorStop(0,colors[0]);shine.addColorStop(.4,colors[1]);shine.addColorStop(1,colors[2]);}
   circle(bx,by,r,shine);
   const [qw,qx,qy,qz]=ball.q;
-  for(const v of [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]]){
+  const marks=material==='cork'?Array.from({length:52},(_,i)=>{const z=1-2*(i+.5)/52,a=i*2.39996323,t=Math.sqrt(1-z*z);return [t*Math.cos(a),t*Math.sin(a),z];}):[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+  for(const v of marks){
     const tx=2*(qy*v[2]-qz*v[1]),ty=2*(qz*v[0]-qx*v[2]),tz=2*(qx*v[1]-qy*v[0]);
     const x=v[0]+qw*tx+qy*tz-qz*ty,y=v[1]+qw*ty+qz*tx-qx*tz,z=v[2]+qw*tz+qx*ty-qy*tx;
-    if(z>.1)circle(bx+x*r*.89,by+y*r*.89,r*(material==='rubber'?.15:.075)*Math.sqrt(z),material==='rubber'?'#e8eddf':'#24352c99');
+    if(z>.1){const marker={steel:['#24352c99',.075],rubber:['#e8eddf',.15],pingpong:['#b75524',.12],cork:['#67402799',.065],billiard:['#ae252c',.16]}[material];circle(bx+x*r*.89,by+y*r*.89,r*marker[1]*Math.sqrt(z),marker[0]);}
+  }
+  if(material==='pingpong'){
+    ctx.strokeStyle='#acaaa266';ctx.lineWidth=r*.035;ctx.beginPath();let active=false;
+    for(let i=0;i<=80;i++){
+      const a=i*Math.PI/40,v=[Math.cos(a),Math.sin(a),0],tx=-2*qz*v[1],ty=2*qz*v[0],tz=2*(qx*v[1]-qy*v[0]);
+      const x=v[0]+qw*tx+qy*tz-qz*ty,y=v[1]+qw*ty+qz*tx-qx*tz,z=qw*tz+qx*ty-qy*tx;
+      if(z>=0){if(active)ctx.lineTo(bx+x*r,by+y*r);else ctx.moveTo(bx+x*r,by+y*r);active=true;}else active=false;
+    }ctx.stroke();
   }
   ctx.restore();ctx.globalAlpha=1;
 }
@@ -233,7 +264,7 @@ function diagnostics(now) {
   }tc.setLineDash([]);
   const avg=recentDts.length?recentDts.reduce((a,b)=>a+b,0)/recentDts.length:0;
   const values=[['Input', mode],['Permission',permission],['Neutral β / γ',neutral?`${neutral.beta.toFixed(1)}° / ${neutral.gamma.toFixed(1)}°`:'Not calibrated'],['Screen rotation',orientation+'°'],['Orientation event rate',avg?(1000/avg).toFixed(1)+' Hz*':'No readings'],['Latest event interval',eventDt?eventDt.toFixed(1)+' ms':'—'],['Event delivery delay',latest?delivery.toFixed(1)+' ms':'—'],['Latest event → frame',latest?Math.max(0,now-latest.stamp).toFixed(1)+' ms':'—'],['Frame interval',frameDt.toFixed(1)+' ms'],['Filter time constant',(tau*1000)+' ms'],['Physics step',(STEP*1000).toFixed(2)+' ms'],['Rotation-rate data',gyroFields],['Raw X / Y',`${raw.x.toFixed(2)}° / ${raw.y.toFixed(2)}°`],['Filtered X / Y',`${smooth.x.toFixed(2)}° / ${smooth.y.toFixed(2)}°`],['Ball speed',Math.hypot(ball.vx,ball.vy).toFixed(3)+' m/s'],['Captured timing records',String(rows.length)]];
-  values.push(['Ball / surface',`${BALLS[material].name} / ${SURFACES[surface].name}`],['Mass / diameter',`${(ball.m*1000).toFixed(2)} g / ${ball.r*2000} mm`],['Contact regime',ball.regime],['Slip speed',(ball.slip*1000).toFixed(1)+' mm/s'],['Spin magnitude',Math.hypot(ball.wx,ball.wy,ball.wz).toFixed(1)+' rad/s'],['Height above support',((ball.z-ball.r)*1000).toFixed(2)+' mm'],['Kinetic energy',(kineticEnergy(ball)*1000).toFixed(3)+' mJ']);
+  values.push(['Ball / surface',`${BALLS[material].name} / ${SURFACES[surface].name}`],['Mass / diameter',`${(ball.m*1000).toFixed(2)} g / ${ball.r*2000} mm`],['Walls',WALL_MATERIALS[wallMaterial].name],['Board dimensions',`${layoutFor(material).width.toFixed(3)} × ${layoutFor(material).height.toFixed(3)} m`],['Inertia / mR²',BALLS[material].inertiaRatio.toFixed(4)],['Contact regime',ball.regime],['Slip speed',(ball.slip*1000).toFixed(1)+' mm/s'],['Spin magnitude',Math.hypot(ball.wx,ball.wy,ball.wz).toFixed(1)+' rad/s'],['Height above support',((ball.z-ball.r)*1000).toFixed(2)+' mm'],['Kinetic energy',(kineticEnergy(ball)*1000).toFixed(3)+' mJ']);
   if(surface==='sand')values.push(['Estimated sinkage',(granularState(ball).sinkage*1000).toFixed(2)+' mm']);
   $('metrics').replaceChildren(...values.flatMap(([label,value])=>{const a=document.createElement('dt'),b=document.createElement('dd');a.textContent=label;b.textContent=value;return[a,b];}));
 }
@@ -245,8 +276,8 @@ function frame(now) {
     if(event?.type==='fall'||event?.type==='escape'){phase='falling';falls++;fallHole=event.hole??null;fallStarted=now;message(event.type==='escape'?'Over the edge.':'One more try.', 'Back to the start. Keep a lighter touch.');updateControls();return false;}
     if(event?.type==='win'){phase='won';message('Beautifully balanced.', `${clockText(elapsed)} · ${falls} ${falls===1?'fall':'falls'}`);updateControls();return false;}
   });
-  if(phase==='falling'&&now-fallStarted>=RESTART_MS){ball=newBall(material,surface);trail=[];fallHole=null;phase='running';clock.reset();message('','');updateControls();}
-  if(phase==='running'){trail.push({x:ball.x,y:ball.y});if(trail.length>28)trail.shift();}
+  if(phase==='falling'&&now-fallStarted>=RESTART_MS){ball=newBall(material,surface,wallMaterial);trail=[];fallHole=null;phase='running';clock.reset();message('','');updateControls();}
+  if(phase==='running'){trail.push({x:ball.x/layoutFor(material).scale,y:ball.y/layoutFor(material).scale});if(trail.length>28)trail.shift();}
   draw(now);record('frame',now,latest?.stamp??'');graph.push({t:now,rx:raw.x,ry:raw.y,fx:smooth.x,fy:smooth.y});while(graph.length&&graph[0].t<now-5500)graph.shift();
   if(now-lastUI>80){lastUI=now;$('time').textContent=clockText(elapsed);$('falls').textContent=String(falls);$('tiltMagnitude').textContent=Math.min(MAX_TILT,Math.hypot(smooth.x,smooth.y)).toFixed(1);
     const radius=pad.clientWidth*.32;$('padKnob').style.transform=`translate(calc(-50% + ${clamp(smooth.x/MAX_TILT,-1,1)*radius}px),calc(-50% + ${clamp(smooth.y/MAX_TILT,-1,1)*radius}px))`;
@@ -259,7 +290,7 @@ updateControls();requestAnimationFrame(frame);
 // Optional page-scoped agent interface, using exactly the visible game actions.
 if(document.modelContext?.registerTool) {
   const lifecycle=new AbortController();window.addEventListener('pagehide',()=>lifecycle.abort(),{once:true});
-  const state=()=>({phase,input:mode,material,surface,timeSeconds:Number(elapsed.toFixed(2)),falls,calibrated:!!neutral,ball:{x:ball.x,y:ball.y,z:ball.z,vx:ball.vx,vy:ball.vy,vz:ball.vz,wx:ball.wx,wy:ball.wy,wz:ball.wz,regime:ball.regime}});
+  const state=()=>({phase,input:mode,material,surface,wallMaterial,board:{width:layoutFor(material).width,height:layoutFor(material).height},timeSeconds:Number(elapsed.toFixed(2)),falls,calibrated:!!neutral,ball:{x:ball.x,y:ball.y,z:ball.z,vx:ball.vx,vy:ball.vy,vz:ball.vz,wx:ball.wx,wy:ball.wy,wz:ball.wz,regime:ball.regime}});
   const tools=[
     {name:'read_marble_game',description:'Read the current maze state and selected controls.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true},execute(input){if(input&&Object.keys(input).length)throw new Error('No arguments expected.');return state();}},
     {name:'control_marble_game',description:'Start, pause, resume, or restart the marble maze using its visible controls. Does not request sensor permission or steer.',inputSchema:{type:'object',properties:{action:{type:'string',enum:['start','pause','resume','restart']}},required:['action'],additionalProperties:false},annotations:{readOnlyHint:false},execute(input){if(!input||Object.keys(input).some(k=>k!=='action')||!['start','pause','resume','restart'].includes(input.action))throw new Error('Use start, pause, resume, or restart.');if(input.action==='restart')restart();else if(input.action==='pause')pause();else{if(mode==='tilt'&&!neutral)throw new Error('Calibrate tilt using the on-screen button first.');if(phase==='falling')throw new Error('Wait for the restart.');if(phase!=='running')togglePlay();}return state();}}

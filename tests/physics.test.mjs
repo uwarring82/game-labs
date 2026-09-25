@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {newBall,advance,STEP,MAX_TILT,CONTACTS,GOAL,FixedClock,tiltVector,filtered,gravity,kineticEnergy,contactImpulse,granularState} from '../dist/physics.js';
-import {restitution,G} from '../dist/materials.js';
-const free={walls:[],holes:[],goal:false,bounds:false};
+import {newBall,advance,STEP,MAX_TILT,CONTACTS,BALLS,SURFACES,WALL_CONTACTS,WALL_MATERIALS,layoutFor,airDrag,GOAL,FixedClock,tiltVector,filtered,gravity,kineticEnergy,contactImpulse,granularState} from '../dist/physics.js';
+import {restitution,G,AIR} from '../dist/materials.js';
+const free={walls:[],holes:[],goal:false,bounds:false,air:false};
 const ideal={...CONTACTS.steel.wood,b0:0,b1:0,eRef:0,muStatic:1,muKinetic:.5};
 function run(b,seconds,tilt={x:0,y:0},opts={}){let event=null;for(let i=0;i<Math.round(seconds/STEP);i++){event=advance(b,tilt,STEP,{...free,...opts});if(event)break;}return event;}
 function roll(b,vx,vy=0){b.vx=vx;b.vy=vy;b.wx=-vy/b.r;b.wy=vx/b.r;return b;}

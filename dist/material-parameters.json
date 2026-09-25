@@ -1,0 +1,414 @@
+{
+  "model": 3,
+  "units": "SI",
+  "evidence": "Provisional scenario parameters. Billiard/baize muKinetic=.20 and rolling deceleration/g=.01 are pooltool reference defaults; billiard/rubber e=.98 and impact friction=.14 are borrowed from Mathavan et al., not fitted to this geometry. All other contact numbers are assumptions.",
+  "air": {
+    "density": 1.225,
+    "dragCoefficient": 0.47
+  },
+  "balls": {
+    "steel": {
+      "name": "Steel",
+      "short": "STEEL",
+      "description": "Solid steel · long coast, firm rebounds",
+      "density": 7900,
+      "radius": 0.0075,
+      "inertiaRatio": 0.4
+    },
+    "rubber": {
+      "name": "Bouncy rubber",
+      "short": "RUBBER",
+      "description": "Solid rubber · grippy, lively rebounds",
+      "density": 1100,
+      "radius": 0.0075,
+      "inertiaRatio": 0.4
+    },
+    "pingpong": {
+      "name": "Table tennis",
+      "short": "TABLE TENNIS",
+      "description": "Hollow shell · light, springy, air resistance matters most",
+      "mass": 0.0027,
+      "radius": 0.02,
+      "inertiaRatio": 0.6666666666666666
+    },
+    "cork": {
+      "name": "Cork",
+      "short": "CORK",
+      "description": "Solid cork · soft contacts and short coast",
+      "density": 240,
+      "radius": 0.0075,
+      "inertiaRatio": 0.4
+    },
+    "billiard": {
+      "name": "Billiard",
+      "short": "BILLIARD",
+      "description": "Solid resin · substantial momentum, precise rolling",
+      "mass": 0.17,
+      "radius": 0.028575,
+      "inertiaRatio": 0.4
+    }
+  },
+  "floors": {
+    "wood": {
+      "name": "Hardwood",
+      "description": "Sealed wood. Counter-tilt to brake.",
+      "scene": "THE WORKSHOP"
+    },
+    "sand": {
+      "name": "Dry sand",
+      "description": "A shallow granular bed. A larger tilt may be needed to start.",
+      "scene": "THE DUNES",
+      "density": 1600,
+      "depth": 0.005,
+      "sinkFactor": 0.46,
+      "ploughFactor": 0.18,
+      "rollingFactor": 0.12,
+      "inertialFactor": 1.5
+    },
+    "ice": {
+      "name": "Smooth ice",
+      "description": "Low grip. Strong tilts and reversals can make the ball skid.",
+      "scene": "THE ICE RINK"
+    },
+    "baize": {
+      "name": "Baize",
+      "description": "Woven cloth. Rolling resistance helps the ball settle.",
+      "scene": "THE BILLIARD ROOM"
+    }
+  },
+  "walls": {
+    "wood": {
+      "name": "Hardwood",
+      "description": "Rigid wooden walls; rebound depends on the ball."
+    },
+    "rubber": {
+      "name": "Rubber bumpers",
+      "description": "Passive elastic bumpers; they return energy but never add it."
+    }
+  },
+  "floorContacts": {
+    "steel": {
+      "wood": {
+        "muStatic": 0.25,
+        "muKinetic": 0.18,
+        "muImpact": 0.2,
+        "eRef": 0.55,
+        "eTangent": 0,
+        "b0": 0.000008,
+        "b1": 0.000012,
+        "effectiveModulus": 1000000000
+      },
+      "sand": {
+        "muStatic": 0.55,
+        "muKinetic": 0.4,
+        "muImpact": 0.4,
+        "eRef": 0.05,
+        "eTangent": 0,
+        "b0": 0.000008,
+        "b1": 0.000012,
+        "effectiveModulus": 1000000000
+      },
+      "ice": {
+        "muStatic": 0.03,
+        "muKinetic": 0.025,
+        "muImpact": 0.025,
+        "eRef": 0.55,
+        "eTangent": 0,
+        "b0": 0,
+        "b1": 0,
+        "effectiveModulus": 1000000000
+      },
+      "baize": {
+        "muStatic": 0.25,
+        "muKinetic": 0.2,
+        "muImpact": 0.2,
+        "eRef": 0.35,
+        "eTangent": 0,
+        "b0": 0.000126,
+        "b1": 0,
+        "effectiveModulus": 10000000
+      }
+    },
+    "rubber": {
+      "wood": {
+        "muStatic": 0.85,
+        "muKinetic": 0.65,
+        "muImpact": 0.7,
+        "eRef": 0.85,
+        "eTangent": 0.45,
+        "b0": 0.00004,
+        "b1": 0.00005,
+        "effectiveModulus": 5000000
+      },
+      "sand": {
+        "muStatic": 0.8,
+        "muKinetic": 0.6,
+        "muImpact": 0.6,
+        "eRef": 0.12,
+        "eTangent": 0,
+        "b0": 0.00004,
+        "b1": 0.00005,
+        "effectiveModulus": 5000000
+      },
+      "ice": {
+        "muStatic": 0.1,
+        "muKinetic": 0.07,
+        "muImpact": 0.08,
+        "eRef": 0.78,
+        "eTangent": 0.25,
+        "b0": 0.000008,
+        "b1": 0.00001,
+        "effectiveModulus": 5000000
+      },
+      "baize": {
+        "muStatic": 0.85,
+        "muKinetic": 0.65,
+        "muImpact": 0.65,
+        "eRef": 0.65,
+        "eTangent": 0.2,
+        "b0": 0.0002625,
+        "b1": 0.00002,
+        "effectiveModulus": 3000000
+      }
+    },
+    "pingpong": {
+      "wood": {
+        "muStatic": 0.25,
+        "muKinetic": 0.2,
+        "muImpact": 0.2,
+        "eRef": 0.85,
+        "eTangent": 0.1,
+        "b0": 0.00003,
+        "b1": 0.00002,
+        "effectiveModulus": 10000000
+      },
+      "sand": {
+        "muStatic": 0.45,
+        "muKinetic": 0.3,
+        "muImpact": 0.3,
+        "eRef": 0.12,
+        "eTangent": 0,
+        "b0": 0.00003,
+        "b1": 0.00002,
+        "effectiveModulus": 10000000
+      },
+      "ice": {
+        "muStatic": 0.04,
+        "muKinetic": 0.03,
+        "muImpact": 0.03,
+        "eRef": 0.82,
+        "eTangent": 0.05,
+        "b0": 0,
+        "b1": 0,
+        "effectiveModulus": 10000000
+      },
+      "baize": {
+        "muStatic": 0.3,
+        "muKinetic": 0.2,
+        "muImpact": 0.2,
+        "eRef": 0.65,
+        "eTangent": 0.1,
+        "b0": 0.0005,
+        "b1": 0,
+        "effectiveModulus": 5000000
+      }
+    },
+    "cork": {
+      "wood": {
+        "muStatic": 0.6,
+        "muKinetic": 0.45,
+        "muImpact": 0.45,
+        "eRef": 0.28,
+        "eTangent": 0,
+        "b0": 0.00012,
+        "b1": 0.0001,
+        "effectiveModulus": 2000000
+      },
+      "sand": {
+        "muStatic": 0.6,
+        "muKinetic": 0.45,
+        "muImpact": 0.45,
+        "eRef": 0.05,
+        "eTangent": 0,
+        "b0": 0.00012,
+        "b1": 0.0001,
+        "effectiveModulus": 2000000
+      },
+      "ice": {
+        "muStatic": 0.08,
+        "muKinetic": 0.06,
+        "muImpact": 0.06,
+        "eRef": 0.25,
+        "eTangent": 0,
+        "b0": 0.00003,
+        "b1": 0.00003,
+        "effectiveModulus": 2000000
+      },
+      "baize": {
+        "muStatic": 0.65,
+        "muKinetic": 0.45,
+        "muImpact": 0.45,
+        "eRef": 0.2,
+        "eTangent": 0,
+        "b0": 0.00031499999999999996,
+        "b1": 0.00005,
+        "effectiveModulus": 1000000
+      }
+    },
+    "billiard": {
+      "wood": {
+        "muStatic": 0.25,
+        "muKinetic": 0.2,
+        "muImpact": 0.2,
+        "eRef": 0.6,
+        "eTangent": 0,
+        "b0": 0.00003,
+        "b1": 0.00002,
+        "effectiveModulus": 1000000000
+      },
+      "sand": {
+        "muStatic": 0.55,
+        "muKinetic": 0.4,
+        "muImpact": 0.4,
+        "eRef": 0.05,
+        "eTangent": 0,
+        "b0": 0.00003,
+        "b1": 0.00002,
+        "effectiveModulus": 1000000000
+      },
+      "ice": {
+        "muStatic": 0.04,
+        "muKinetic": 0.03,
+        "muImpact": 0.03,
+        "eRef": 0.65,
+        "eTangent": 0,
+        "b0": 0,
+        "b1": 0,
+        "effectiveModulus": 1000000000
+      },
+      "baize": {
+        "muStatic": 0.25,
+        "muKinetic": 0.2,
+        "muImpact": 0.2,
+        "eRef": 0.4,
+        "eTangent": 0,
+        "b0": 0.00040005,
+        "b1": 0,
+        "effectiveModulus": 10000000
+      }
+    }
+  },
+  "wallContacts": {
+    "steel": {
+      "wood": {
+        "muStatic": 0.25,
+        "muKinetic": 0.18,
+        "muImpact": 0.2,
+        "eRef": 0.55,
+        "eTangent": 0,
+        "b0": 0.000008,
+        "b1": 0.000012,
+        "effectiveModulus": 1000000000
+      },
+      "rubber": {
+        "muStatic": 0.7,
+        "muKinetic": 0.55,
+        "muImpact": 0.55,
+        "eRef": 0.88,
+        "eTangent": 0.15,
+        "b0": 0.000008,
+        "b1": 0.000012,
+        "effectiveModulus": 3000000
+      }
+    },
+    "rubber": {
+      "wood": {
+        "muStatic": 0.85,
+        "muKinetic": 0.65,
+        "muImpact": 0.7,
+        "eRef": 0.85,
+        "eTangent": 0.45,
+        "b0": 0.00004,
+        "b1": 0.00005,
+        "effectiveModulus": 5000000
+      },
+      "rubber": {
+        "muStatic": 0.9,
+        "muKinetic": 0.75,
+        "muImpact": 0.75,
+        "eRef": 0.88,
+        "eTangent": 0.4,
+        "b0": 0.00004,
+        "b1": 0.00005,
+        "effectiveModulus": 3000000
+      }
+    },
+    "pingpong": {
+      "wood": {
+        "muStatic": 0.25,
+        "muKinetic": 0.2,
+        "muImpact": 0.2,
+        "eRef": 0.85,
+        "eTangent": 0.1,
+        "b0": 0.00003,
+        "b1": 0.00002,
+        "effectiveModulus": 10000000
+      },
+      "rubber": {
+        "muStatic": 0.6,
+        "muKinetic": 0.45,
+        "muImpact": 0.45,
+        "eRef": 0.9,
+        "eTangent": 0.2,
+        "b0": 0.00003,
+        "b1": 0.00002,
+        "effectiveModulus": 3000000
+      }
+    },
+    "cork": {
+      "wood": {
+        "muStatic": 0.6,
+        "muKinetic": 0.45,
+        "muImpact": 0.45,
+        "eRef": 0.28,
+        "eTangent": 0,
+        "b0": 0.00012,
+        "b1": 0.0001,
+        "effectiveModulus": 2000000
+      },
+      "rubber": {
+        "muStatic": 0.7,
+        "muKinetic": 0.5,
+        "muImpact": 0.5,
+        "eRef": 0.35,
+        "eTangent": 0,
+        "b0": 0.00012,
+        "b1": 0.0001,
+        "effectiveModulus": 3000000
+      }
+    },
+    "billiard": {
+      "wood": {
+        "muStatic": 0.25,
+        "muKinetic": 0.2,
+        "muImpact": 0.2,
+        "eRef": 0.6,
+        "eTangent": 0,
+        "b0": 0.00003,
+        "b1": 0.00002,
+        "effectiveModulus": 1000000000
+      },
+      "rubber": {
+        "muStatic": 0.14,
+        "muKinetic": 0.14,
+        "muImpact": 0.14,
+        "eRef": 0.98,
+        "eTangent": 0,
+        "b0": 0.00003,
+        "b1": 0.00002,
+        "effectiveModulus": 3000000,
+        "constantRestitution": true
+      }
+    }
+  }
+}
