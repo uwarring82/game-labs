@@ -1,114 +1,159 @@
-// Metres, seconds. A deliberately planar model; spin and shaking are excluded.
-export const W = 0.30, H = 0.36, R = 0.0075, STEP = 1 / 240;
-export const MAX_SPEED = 0.85;
-export const START = { x: 0.041, y: 0.043 };
-export const GOAL = { x: 0.260, y: 0.319, r: 0.019 };
-export const WALLS = [
-  { x: 0, y: 0, w: W, h: 0.008 }, { x: 0, y: H - 0.008, w: W, h: 0.008 },
-  { x: 0, y: 0, w: 0.008, h: H }, { x: W - 0.008, y: 0, w: 0.008, h: H },
-  { x: 0.008, y: 0.088, w: 0.205, h: 0.009 },
-  { x: 0.086, y: 0.174, w: 0.206, h: 0.009 },
-  { x: 0.008, y: 0.260, w: 0.205, h: 0.009 },
-  { x: 0.145, y: 0.183, w: 0.009, h: 0.025 }
+import { G, BALLS, CONTACTS, granularState, restitution } from './materials.js';
+export { BALLS, CONTACTS, SURFACES, granularState } from './materials.js';
+export const W=.30,H=.36,R=.0075,STEP=1/240,MAX_TILT=28;
+export const START={x:.041,y:.043};
+export const GOAL={x:.260,y:.319,r:.019};
+export const WALLS=[
+  {x:0,y:0,w:W,h:.008,height:.040},{x:0,y:H-.008,w:W,h:.008,height:.040},
+  {x:0,y:0,w:.008,h:H,height:.040},{x:W-.008,y:0,w:.008,h:H,height:.040},
+  {x:.008,y:.088,w:.205,h:.009,height:.018},
+  {x:.086,y:.174,w:.206,h:.009,height:.018},
+  {x:.008,y:.260,w:.205,h:.009,height:.018},
+  {x:.145,y:.183,w:.009,h:.025,height:.018}
 ];
-export const HOLES = [
-  { x: 0.164, y: 0.046, r: 0.016 },
-  { x: 0.244, y: 0.142, r: 0.016 },
-  { x: 0.060, y: 0.226, r: 0.016 },
-  { x: 0.173, y: 0.306, r: 0.016 }
-];
-export const PRESETS = {
-  classic: { damping: 0.12, resistance: 0.0015, restitution: 0.32, tangential: 0.035, holeInset: 0, restart: 800 },
-  gentle: { damping: 1.5, resistance: 0.0015, restitution: 0.20, tangential: 0.055, holeInset: 0.003, restart: 420 }
-};
-export const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
-export function angleDifference(a, b) { return ((a - b + 540) % 360) - 180; }
-export function tiltVector(beta, gamma, neutral, screenAngle = 0) {
-  const x = angleDifference(gamma, neutral.gamma), y = angleDifference(beta, neutral.beta);
-  const t = screenAngle * Math.PI / 180;
-  return { x: x * Math.cos(t) + y * Math.sin(t), y: -x * Math.sin(t) + y * Math.cos(t) };
+export const HOLES=[{x:.164,y:.046,r:.016},{x:.244,y:.142,r:.016},{x:.060,y:.226,r:.016},{x:.173,y:.306,r:.016}];
+export const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+export function angleDifference(a,b){return ((a-b+540)%360)-180;}
+export function tiltVector(beta,gamma,neutral,screenAngle=0){
+  const x=angleDifference(gamma,neutral.gamma),y=angleDifference(beta,neutral.beta),t=screenAngle*Math.PI/180;
+  return {x:x*Math.cos(t)+y*Math.sin(t),y:-x*Math.sin(t)+y*Math.cos(t)};
 }
-export function filtered(current, target, dt, tau) {
-  return current + (target - current) * (tau > 0 ? -Math.expm1(-dt / tau) : 1);
+export function filtered(current,target,dt,tau){return current+(target-current)*(tau>0?-Math.expm1(-dt/tau):1);}
+export function gravity(tilt){
+  // Radial virtual-board inclination keeps |g|=G even for diagonal input.
+  const length=Math.hypot(tilt.x,tilt.y),theta=Math.min(MAX_TILT,length)*Math.PI/180;
+  const scale=length?G*Math.sin(theta)/length:0;
+  return {x:scale*tilt.x,y:scale*tilt.y,z:-G*Math.cos(theta)};
 }
-// Fraction of a straight segment within a circular, fully unsupported region.
-export function circleInterval(x0, y0, x1, y1, hole, radius) {
-  if (radius <= 0) return null;
-  const dx = x1 - x0, dy = y1 - y0, ox = x0 - hole.x, oy = y0 - hole.y;
-  const a = dx * dx + dy * dy, c = ox * ox + oy * oy - radius * radius;
-  if (a < 1e-20) return c <= 0 ? [0, 1] : null;
-  const b = 2 * (ox * dx + oy * dy), discriminant = b * b - 4 * a * c;
-  if (discriminant < 0) return null;
-  const root = Math.sqrt(discriminant), lo = Math.max(0, (-b - root) / (2 * a)), hi = Math.min(1, (-b + root) / (2 * a));
-  return hi > lo ? [lo, hi] : null;
+export function newBall(material='steel',surface='wood'){
+  const p=BALLS[material];if(!p||!CONTACTS[material][surface])throw new Error('Unknown material or surface');
+  const r=p.radius,m=4/3*Math.PI*r**3*p.density;
+  return {...START,z:r,vx:0,vy:0,vz:0,wx:0,wy:0,wz:0,q:[1,0,0,0],r,m,I:p.inertiaRatio*m*r*r,density:p.density,material,surface,grounded:true,slip:0,regime:'rest',impacts:0,skipped:0,overHole:null};
 }
-export function newBall() { return { ...START, vx: 0, vy: 0, holeTimes: HOLES.map(() => 0), skipped: 0 }; }
-export function resolveWall(ball, wall, p) {
-  const nx = clamp(ball.x, wall.x, wall.x + wall.w), ny = clamp(ball.y, wall.y, wall.y + wall.h);
-  const dx = ball.x - nx, dy = ball.y - ny, d = Math.hypot(dx, dy);
-  if (d >= R) return;
-  let ux, uy, overlap;
-  if (d > 1e-12) { ux = dx / d; uy = dy / d; overlap = R - d; }
+export function kineticEnergy(b){return .5*b.m*(b.vx*b.vx+b.vy*b.vy+b.vz*b.vz)+.5*b.I*(b.wx*b.wx+b.wy*b.wy+b.wz*b.wz);}
+export function contactVelocity(b,n){
+  const rx=-b.r*n.x,ry=-b.r*n.y,rz=-b.r*n.z;
+  return {x:b.vx+b.wy*rz-b.wz*ry,y:b.vy+b.wz*rx-b.wx*rz,z:b.vz+b.wx*ry-b.wy*rx};
+}
+function applyImpulse(b,n,jx,jy,jz){
+  b.vx+=jx/b.m;b.vy+=jy/b.m;b.vz+=jz/b.m;
+  const rx=-b.r*n.x,ry=-b.r*n.y,rz=-b.r*n.z;
+  b.wx+=(ry*jz-rz*jy)/b.I;b.wy+=(rz*jx-rx*jz)/b.I;b.wz+=(rx*jy-ry*jx)/b.I;
+}
+export function contactImpulse(b,n,p,{bounce=true}={}){
+  const u=contactVelocity(b,n),vn=u.x*n.x+u.y*n.y+u.z*n.z;
+  if(vn>=0)return 0;
+  // Suppress support-contact restitution chatter below 0.08 m/s.
+  const impact=bounce&&-vn>.08,e=impact?restitution(p,-vn):0,jn=-(1+e)*vn*b.m;
+  const tx=u.x-vn*n.x,ty=u.y-vn*n.y,tz=u.z-vn*n.z,ut=Math.hypot(tx,ty,tz);
+  let jt=0;
+  if(ut>1e-14){
+    const effectiveMass=1/(1/b.m+b.r*b.r/b.I);
+    const desired=(1+(impact?p.eTangent:0))*ut*effectiveMass;
+    if(impact)jt=Math.min(desired,p.muImpact*jn);
+    else jt=desired<=p.muStatic*jn?desired:Math.min(desired,p.muKinetic*jn);
+  }
+  const tScale=ut?jt/ut:0;
+  applyImpulse(b,n,jn*n.x-tScale*tx,jn*n.y-tScale*ty,jn*n.z-tScale*tz);
+  if(impact)b.impacts++;
+  return jn;
+}
+export function resolveWall(b,w,p=CONTACTS[b.material].wood){
+  const top=w.height??.018,bottom=-.025;
+  const closest={x:clamp(b.x,w.x,w.x+w.w),y:clamp(b.y,w.y,w.y+w.h),z:clamp(b.z,bottom,top)};
+  let dx=b.x-closest.x,dy=b.y-closest.y,dz=b.z-closest.z,d=Math.hypot(dx,dy,dz),depth;
+  if(d>=b.r)return false;
+  if(d>1e-12){dx/=d;dy/=d;dz/=d;depth=b.r-d;}
   else {
-    const edges = [ { d: ball.x - wall.x, x: -1, y: 0 }, { d: wall.x + wall.w - ball.x, x: 1, y: 0 }, { d: ball.y - wall.y, x: 0, y: -1 }, { d: wall.y + wall.h - ball.y, x: 0, y: 1 } ];
-    const edge = edges.reduce((a, b) => a.d < b.d ? a : b); ux = edge.x; uy = edge.y; overlap = R + edge.d;
+    const sides=[{d:b.x-w.x,n:[-1,0,0]},{d:w.x+w.w-b.x,n:[1,0,0]},{d:b.y-w.y,n:[0,-1,0]},{d:w.y+w.h-b.y,n:[0,1,0]},{d:top-b.z,n:[0,0,1]},{d:b.z-bottom,n:[0,0,-1]}];
+    const side=sides.reduce((a,c)=>a.d<c.d?a:c);[dx,dy,dz]=side.n;depth=b.r+side.d;
   }
-  ball.x += ux * (overlap + 1e-9); ball.y += uy * (overlap + 1e-9);
-  const normal = ball.vx * ux + ball.vy * uy;
-  if (normal < 0) {
-    const tx = ball.vx - normal * ux, ty = ball.vy - normal * uy;
-    ball.vx = -p.restitution * normal * ux + tx * (1 - p.tangential);
-    ball.vy = -p.restitution * normal * uy + ty * (1 - p.tangential);
+  b.x+=dx*(depth+1e-9);b.y+=dy*(depth+1e-9);b.z+=dz*(depth+1e-9);
+  contactImpulse(b,{x:dx,y:dy,z:dz},p);
+  return true;
+}
+function openingAt(x,y,holes){return holes.findIndex(h=>Math.hypot(x-h.x,y-h.y)<h.r);}
+function floorContact(b,holes,p,wallProfile){
+  const opening=openingAt(b.x,b.y,holes);
+  if(opening<0){
+    if(b.z<=b.r+1e-9){b.z=Math.max(b.r,b.z);contactImpulse(b,{x:0,y:0,z:1},p);return b.vz<.02;}
+    return false;
+  }
+  // Nearest point on an ideal rigid circular aperture. Above z=0: rim;
+  // below z=0: inner cylindrical wall. Gravity and contact decide capture.
+  const hole=holes[opening],dx=b.x-hole.x,dy=b.y-hole.y,d=Math.hypot(dx,dy);
+  if(d<1e-12)return false;
+  const gap=hole.r-d,dz=Math.max(b.z,0),dist=Math.hypot(gap,dz);
+  if(dist<b.r){
+    const n={x:-gap*dx/d/dist,y:-gap*dy/d/dist,z:dz/dist},pen=b.r-dist;
+    b.x+=n.x*(pen+1e-9);b.y+=n.y*(pen+1e-9);b.z+=n.z*(pen+1e-9);
+    contactImpulse(b,n,wallProfile);
+  }
+  return false;
+}
+function rollingLoss(b,normal,dt,p,granular){
+  const omega=Math.hypot(b.wx,b.wy),speed=omega*b.r;
+  const arm=p.b0+p.b1*speed+(granular?.rollingArm??0);
+  if(omega>0){const decrement=Math.min(omega,normal*arm*dt/b.I);b.wx*=1-decrement/omega;b.wy*=1-decrement/omega;}
+  const contactRadius=granular?.footprint??Math.cbrt(3*normal*b.r/(4*p.effectiveModulus));
+  const spinDrop=Math.min(Math.abs(b.wz),(3*Math.PI/16)*p.muKinetic*normal*contactRadius*dt/b.I);
+  b.wz-=Math.sign(b.wz)*spinDrop;
+  if(granular){
+    const v=Math.hypot(b.vx,b.vy);
+    if(v){const force=granular.ploughCoefficient*normal+granular.inertialDrag*v*v;
+      const dv=Math.min(v,force*dt/b.m);b.vx*=1-dv/v;b.vy*=1-dv/v;}
   }
 }
-export function advance(ball, tilt, dt, options = {}) {
-  const p = PRESETS[options.preset || 'classic'], sensitivity = options.sensitivity ?? 1;
-  const walls = options.walls ?? WALLS, holes = options.holes ?? HOLES;
-  // 4 mm effective lip-catching drop. Unsupported radius R_hole - R_ball.
-  // This is a tunable rim model, not full 3D sphere/rim contact mechanics.
-  const fallTime = Math.sqrt(2 * (options.catchDepth ?? 0.004) / 9.81);
-  const count = Math.max(1, Math.ceil(MAX_SPEED * dt / (R * 0.25)));
-  const h = dt / count;
-  for (let n = 0; n < count; n++) {
-    const rad = Math.PI / 180;
-    ball.vx += 9.81 * (5 / 7) * Math.sin(clamp(tilt.x, -18, 18) * rad) * sensitivity * h;
-    ball.vy += 9.81 * (5 / 7) * Math.sin(clamp(tilt.y, -18, 18) * rad) * sensitivity * h;
-    let speed = Math.hypot(ball.vx, ball.vy);
-    if (speed) {
-      const next = Math.min(MAX_SPEED, Math.max(0, speed - p.resistance * 9.81 * h) * Math.exp(-p.damping * h));
-      ball.vx *= next / speed; ball.vy *= next / speed;
+function rotate(b,dt){
+  const w=Math.hypot(b.wx,b.wy,b.wz);if(!w)return;
+  const angle=w*dt*.5,c=Math.cos(angle),s=Math.sin(angle)/w,x=b.wx*s,y=b.wy*s,z=b.wz*s,[a,u,v,t]=b.q;
+  const next=[c*a-x*u-y*v-z*t,c*u+x*a+y*t-z*v,c*v-x*t+y*a+z*u,c*t+x*v-y*u+z*a];
+  const norm=Math.hypot(...next);b.q=next.map(n=>n/norm);
+}
+export function advance(b,tilt,dt,options={}){
+  const walls=options.walls??WALLS,holes=options.holes??HOLES;
+  const p=options.floorProfile??CONTACTS[b.material][b.surface],wallProfile=options.wallProfile??CONTACTS[b.material].wood;
+  const granular=options.granular===false?null:b.surface==='sand'?granularState(b):null;
+  const g=gravity(tilt),normal=-g.z*b.m;
+  let remaining=dt;
+  while(remaining>1e-12){
+    // Adaptive displacement bound, with no artificial speed limit.
+    const speed=Math.hypot(b.vx,b.vy,b.vz);
+    const h=Math.min(remaining,1/960,b.r*.2/(speed+G*remaining+1e-9));remaining-=h;
+    const onFloor=b.z<=b.r+2e-6&&Math.abs(b.vz)<.02&&openingAt(b.x,b.y,holes)<0;
+    const resistanceRatio=(p.b0+(granular?.rollingArm??0))/b.r+(granular?.ploughCoefficient??0);
+    const nearRest=Math.hypot(b.vx,b.vy)<2e-5&&Math.hypot(b.wx,b.wy)*b.r<2e-5;
+    const held=onFloor&&nearRest&&Math.hypot(g.x,g.y)<=(-g.z)*resistanceRatio;
+    if(held){b.vx=0;b.vy=0;b.wx=0;b.wy=0;}
+    else {b.vx+=g.x*h;b.vy+=g.y*h;}
+    b.vz+=g.z*h;
+    if(onFloor)rollingLoss(b,normal,h,p,granular);
+    b.x+=b.vx*h;b.y+=b.vy*h;b.z+=b.vz*h;
+    for(let i=0;i<3;i++){
+      for(const wall of walls)resolveWall(b,wall,wallProfile);
+      const supported=floorContact(b,holes,p,wallProfile);
+      if(i===2)b.grounded=supported;
     }
-    const x0 = ball.x, y0 = ball.y;
-    ball.x += ball.vx * h; ball.y += ball.vy * h;
-    // Iteration resolves perpendicular contacts at internal corners.
-    for (let k = 0; k < 3; k++) for (const wall of walls) resolveWall(ball, wall, p);
-    for (let i = 0; i < holes.length; i++) {
-      const hole = holes[i], radius = hole.r - R - p.holeInset;
-      const interval = circleInterval(x0, y0, ball.x, ball.y, hole, radius);
-      if (interval) {
-        if (interval[0] > 1e-9) ball.holeTimes[i] = 0;
-        ball.holeTimes[i] = (ball.holeTimes[i] || 0) + (interval[1] - interval[0]) * h;
-        if (ball.holeTimes[i] >= fallTime) return { type: 'fall', hole: i };
-        if (interval[1] < 1 - 1e-9) { ball.holeTimes[i] = 0; ball.skipped++; }
-      } else ball.holeTimes[i] = 0;
-    }
-    if (options.goal !== false && Math.hypot(ball.x - GOAL.x, ball.y - GOAL.y) < GOAL.r - R && Math.hypot(ball.vx, ball.vy) < 0.12) return { type: 'win' };
+    rotate(b,h);
+    const opening=openingAt(b.x,b.y,holes);
+    if(opening>=0){b.overHole=opening;if(b.z<-b.r)return{type:'fall',hole:opening};}
+    else if(b.overHole!==null){b.skipped++;b.overHole=null;}
+    const u=contactVelocity(b,{x:0,y:0,z:1});b.slip=Math.hypot(u.x,u.y);
+    b.regime=b.grounded?(Math.hypot(b.vx,b.vy)<2e-5&&Math.hypot(b.wx,b.wy)*b.r<2e-5?'rest':b.slip>.002?'sliding':'rolling'):'airborne';
+    if(options.goal!==false&&b.grounded&&Math.hypot(b.x-GOAL.x,b.y-GOAL.y)<GOAL.r-b.r&&Math.hypot(b.vx,b.vy)<.08)return{type:'win'};
+    if(b.x<-b.r||b.x>W+b.r||b.y<-b.r||b.y>H+b.r){if(options.bounds!==false)return{type:'escape'};}
   }
   return null;
 }
 export class FixedClock {
-  constructor() { this.last = null; this.accumulator = 0; }
-  reset() { this.last = null; this.accumulator = 0; }
-  tick(now, running, step) {
-    if (this.last === null) { this.last = now; return 0; }
-    const elapsed = Math.min(0.05, Math.max(0, (now - this.last) / 1000)); this.last = now;
-    if (!running) { this.accumulator = 0; return 0; }
-    this.accumulator += elapsed;
-    let count = 0;
-    while (this.accumulator >= STEP && count < 12) {
-      this.accumulator -= STEP; count++;
-      if (step(STEP) === false) { this.accumulator = 0; break; }
-    }
+  constructor(){this.last=null;this.accumulator=0;}
+  reset(){this.last=null;this.accumulator=0;}
+  tick(now,running,step){
+    if(this.last===null){this.last=now;return 0;}
+    const elapsed=Math.min(.05,Math.max(0,(now-this.last)/1000));this.last=now;
+    if(!running){this.accumulator=0;return 0;}
+    this.accumulator+=elapsed;let count=0;
+    while(this.accumulator+1e-12>=STEP&&count<12){this.accumulator=Math.max(0,this.accumulator-STEP);count++;if(step(STEP)===false){this.accumulator=0;break;}}
     return count;
   }
 }
