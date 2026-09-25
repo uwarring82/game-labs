@@ -1,0 +1,1246 @@
+{
+  "selectedSeed": 371,
+  "candidates": [
+    {
+      "seed": 371,
+      "accepted": true,
+      "shape": {
+        "maxSlopeDegrees": 13.069290650337305,
+        "minNonLipCrestRadius": 0.10646895900797629,
+        "heightRange": [
+          -0.012646131105943374,
+          0.006992654915287619
+        ],
+        "maxRouteSlope": 9.802661988508708,
+        "maxRouteUphill": 8.72349082147175,
+        "slopeClasses": {
+          "free": 14440,
+          "committed": 4309,
+          "momentum": 1733
+        },
+        "passes": [
+          {
+            "x": 0.2738120649176354,
+            "y": 0.0554261611340454,
+            "h": 0.0000568717933373617,
+            "type": "saddle",
+            "gradient": 1.7592625119104474e-18
+          },
+          {
+            "x": 0.2665396444947409,
+            "y": 0.2896172551370271,
+            "h": 0.001042210029761075,
+            "type": "saddle",
+            "gradient": 1.2565417155379272e-17
+          },
+          {
+            "x": 0.2208671515666314,
+            "y": 0.33540121095929815,
+            "h": 0.0013276164357674833,
+            "type": "saddle",
+            "gradient": 2.6258630898188326e-16
+          },
+          {
+            "x": 0.2466522818307591,
+            "y": 0.3819879825512357,
+            "h": 0.0003580287889901114,
+            "type": "saddle",
+            "gradient": 1.3963159419847448e-18
+          }
+        ],
+        "holesClearSaddles": true,
+        "basinsDrained": true,
+        "accepted": true
+      },
+      "pocket": {
+        "accepted": true,
+        "tiltSeconds": 30,
+        "tiltBudget": 8,
+        "afterTilt": {
+          "x": 0.12742014447998026,
+          "y": 0.4001018532475633
+        },
+        "afterPulse": {
+          "x": 0.29199999900018736,
+          "y": 0.36529378332349494
+        },
+        "pulse": {
+          "boardX": -5,
+          "seconds": 0.1
+        },
+        "qualification": "constant exit-directed tilt is tested; arbitrary resonant pumping is not proven impossible"
+      },
+      "bots": {
+        "scope": "all five balls on the intended hardwood floor; whole-board floor swaps are exploratory",
+        "tiltBudget": 8,
+        "controller": "PD with terrain feed-forward; seeded initial position; acceleration only in declared jump region",
+        "intended": "steel",
+        "hardest": "billiard",
+        "scenarios": [
+          {
+            "material": "steel",
+            "surface": "wood",
+            "successes": 10,
+            "trials": [
+              {
+                "material": "steel",
+                "surface": "wood",
+                "seed": 1,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 10.661458333335077,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.23500003509773235,
+                  "y": 0.568000099667071,
+                  "z": 0.011992654915285993,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": -8.673617379884035e-19,
+                  "vz": 4.2550164780497113e-13,
+                  "normal": 0.04057832651252866,
+                  "spin": 0.002765225387555666
+                },
+                "trace": []
+              },
+              {
+                "material": "steel",
+                "surface": "wood",
+                "seed": 2,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 10.661458333335077,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.2350000377069672,
+                  "y": 0.5680000985406868,
+                  "z": 0.011992654915285998,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": -8.673617379884035e-19,
+                  "vz": 4.2486500428928764e-13,
+                  "normal": 0.04057832651260732,
+                  "spin": 0.0027652193686249064
+                },
+                "trace": []
+              },
+              {
+                "material": "steel",
+                "surface": "wood",
+                "seed": 3,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 10.661458333335077,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.23500003536135314,
+                  "y": 0.5680000995570194,
+                  "z": 0.011992654915285993,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": -8.673617379884035e-19,
+                  "vz": 4.2543746303636e-13,
+                  "normal": 0.04057832651253658,
+                  "spin": 0.002765224782244024
+                },
+                "trace": []
+              },
+              {
+                "material": "steel",
+                "surface": "wood",
+                "seed": 4,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 10.661458333335077,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.23500003480944848,
+                  "y": 0.5680000997864746,
+                  "z": 0.011992654915285993,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": -8.673617379884035e-19,
+                  "vz": 4.255710367440102e-13,
+                  "normal": 0.040578326512520024,
+                  "spin": 0.0027652260490979063
+                },
+                "trace": []
+              },
+              {
+                "material": "steel",
+                "surface": "wood",
+                "seed": 5,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 10.661458333335077,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.23500003650760776,
+                  "y": 0.5680000990687429,
+                  "z": 0.011992654915285996,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": 0,
+                  "vz": 4.251581725567277e-13,
+                  "normal": 0.040578326512571074,
+                  "spin": 0.0027652221427697772
+                },
+                "trace": []
+              },
+              {
+                "material": "steel",
+                "surface": "wood",
+                "seed": 6,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 10.661458333335077,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.23500003373267403,
+                  "y": 0.5680001002237105,
+                  "z": 0.011992654915285991,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": 0,
+                  "vz": 4.2583065626433343e-13,
+                  "normal": 0.04057832651248782,
+                  "spin": 0.002765228513291667
+                },
+                "trace": []
+              },
+              {
+                "material": "steel",
+                "surface": "wood",
+                "seed": 7,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 10.661458333335077,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.23500003325478416,
+                  "y": 0.5680001004133785,
+                  "z": 0.011992654915285991,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": 0,
+                  "vz": 4.25945842673073e-13,
+                  "normal": 0.04057832651247357,
+                  "spin": 0.0027652296037398035
+                },
+                "trace": []
+              },
+              {
+                "material": "steel",
+                "surface": "wood",
+                "seed": 8,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 10.661458333335077,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.2350000353764979,
+                  "y": 0.5680000995506613,
+                  "z": 0.011992654915285993,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": -8.673617379884035e-19,
+                  "vz": 4.2543282472393594e-13,
+                  "normal": 0.04057832651253704,
+                  "spin": 0.0027652247470813826
+                },
+                "trace": []
+              },
+              {
+                "material": "steel",
+                "surface": "wood",
+                "seed": 9,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 10.661458333335077,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.23500002787178503,
+                  "y": 0.5680001023685248,
+                  "z": 0.01199265491528598,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": 8.673617379884035e-19,
+                  "vz": 4.2722943238704403e-13,
+                  "normal": 0.04057832651231481,
+                  "spin": 0.002765241752800998
+                },
+                "trace": []
+              },
+              {
+                "material": "steel",
+                "surface": "wood",
+                "seed": 10,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 10.661458333335077,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.2350000359864255,
+                  "y": 0.5680000992927182,
+                  "z": 0.011992654915285995,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": -8.673617379884035e-19,
+                  "vz": 4.2528461972365294e-13,
+                  "normal": 0.04057832651255537,
+                  "spin": 0.00276522334404585
+                },
+                "trace": []
+              }
+            ]
+          },
+          {
+            "material": "rubber",
+            "surface": "wood",
+            "successes": 10,
+            "trials": [
+              {
+                "material": "rubber",
+                "surface": "wood",
+                "seed": 1,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 10.625000000001714,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.23499989253659184,
+                  "y": 0.5680005114878666,
+                  "z": 0.011992654915247826,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": 0,
+                  "vz": -2.6957986190567773e-11,
+                  "normal": 0.005649979691536431,
+                  "spin": 0.035419254549694745
+                },
+                "trace": []
+              },
+              {
+                "material": "rubber",
+                "surface": "wood",
+                "seed": 2,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 10.625000000001714,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.23499951848935394,
+                  "y": 0.5680002248166915,
+                  "z": 0.011992654915246481,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": -8.673617379884035e-19,
+                  "vz": -2.7409226928911108e-11,
+                  "normal": 0.005649979694442418,
+                  "spin": 0.03541892029313924
+                },
+                "trace": []
+              },
+              {
+                "material": "rubber",
+                "surface": "wood",
+                "seed": 3,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 10.625000000001714,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.23499986048397947,
+                  "y": 0.5679994261674718,
+                  "z": 0.011992654915236819,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": 8.673617379884035e-19,
+                  "vz": -3.045767110743114e-11,
+                  "normal": 0.00564997971407516,
+                  "spin": 0.03541666199494423
+                },
+                "trace": []
+              },
+              {
+                "material": "rubber",
+                "surface": "wood",
+                "seed": 4,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 10.625000000001714,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.23499983308137973,
+                  "y": 0.5680004892995028,
+                  "z": 0.011992654915248684,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": 8.673617379884035e-19,
+                  "vz": -2.666581538912638e-11,
+                  "normal": 0.005649979689654868,
+                  "spin": 0.035419470972047194
+                },
+                "trace": []
+              },
+              {
+                "material": "rubber",
+                "surface": "wood",
+                "seed": 5,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 10.625000000001714,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.2350003475626609,
+                  "y": 0.5679995265700001,
+                  "z": 0.011992654915237388,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": 0,
+                  "vz": -3.029083373445709e-11,
+                  "normal": 0.005649979713000619,
+                  "spin": 0.035416785599793145
+                },
+                "trace": []
+              },
+              {
+                "material": "rubber",
+                "surface": "wood",
+                "seed": 6,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 10.625000000001714,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.2349999751999111,
+                  "y": 0.5680005189977468,
+                  "z": 0.01199265491524829,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": 0,
+                  "vz": -2.6799984106928854e-11,
+                  "normal": 0.0056499796905189045,
+                  "spin": 0.03541937158844759
+                },
+                "trace": []
+              },
+              {
+                "material": "rubber",
+                "surface": "wood",
+                "seed": 7,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 10.625000000001714,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.23499976235160536,
+                  "y": 0.5679994661529503,
+                  "z": 0.011992654915237879,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": -8.673617379884035e-19,
+                  "vz": -3.013834147524985e-11,
+                  "normal": 0.00564997971201853,
+                  "spin": 0.035416898569211985
+                },
+                "trace": []
+              },
+              {
+                "material": "rubber",
+                "surface": "wood",
+                "seed": 8,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 10.625000000001714,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.23500053431730747,
+                  "y": 0.5679998808090425,
+                  "z": 0.011992654915243975,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": 0,
+                  "vz": -2.8236131815324982e-11,
+                  "normal": 0.005649979699767738,
+                  "spin": 0.03541830774930751
+                },
+                "trace": []
+              },
+              {
+                "material": "rubber",
+                "surface": "wood",
+                "seed": 9,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 10.625000000001714,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.23499951855609372,
+                  "y": 0.5679997007784812,
+                  "z": 0.011992654915240812,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": -8.673617379884035e-19,
+                  "vz": -2.923625230799587e-11,
+                  "normal": 0.005649979706208749,
+                  "spin": 0.03541756686114602
+                },
+                "trace": []
+              },
+              {
+                "material": "rubber",
+                "surface": "wood",
+                "seed": 10,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 10.625000000001714,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.23499969711067983,
+                  "y": 0.5680004225554701,
+                  "z": 0.011992654915248244,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": 0,
+                  "vz": -2.6815919276779177e-11,
+                  "normal": 0.005649979690621537,
+                  "spin": 0.035419359783412346
+                },
+                "trace": []
+              }
+            ]
+          },
+          {
+            "material": "pingpong",
+            "surface": "wood",
+            "successes": 10,
+            "trials": [
+              {
+                "material": "pingpong",
+                "surface": "wood",
+                "seed": 1,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 17.665625000004475,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.9399999734251918,
+                  "y": 2.272000025591402,
+                  "z": 0.04797061966115021,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": -3.469446951953614e-18,
+                  "vz": -2.3063669030154443e-13,
+                  "normal": 0.026486970188298528,
+                  "spin": 0.0009014997076750213
+                },
+                "trace": []
+              },
+              {
+                "material": "pingpong",
+                "surface": "wood",
+                "seed": 2,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 17.665625000004475,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.9400000278343186,
+                  "y": 2.2720000368786004,
+                  "z": 0.0479706196611501,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": -3.469446951953614e-18,
+                  "vz": 2.2555048106998044e-13,
+                  "normal": 0.02648696894315392,
+                  "spin": 0.0007039625825955144
+                },
+                "trace": []
+              },
+              {
+                "material": "pingpong",
+                "surface": "wood",
+                "seed": 3,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 17.665625000004475,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.940000050351431,
+                  "y": 2.2720000141323924,
+                  "z": 0.04797061966114999,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": -3.469446951953614e-18,
+                  "vz": 2.5531139702383854e-13,
+                  "normal": 0.026486968940930534,
+                  "spin": 0.0007040035864995229
+                },
+                "trace": []
+              },
+              {
+                "material": "pingpong",
+                "surface": "wood",
+                "seed": 4,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 17.665625000004475,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.9399999906452083,
+                  "y": 2.272000005457277,
+                  "z": 0.04797061966115043,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": 0,
+                  "vz": 0,
+                  "normal": 0.026486971271296747,
+                  "spin": 0
+                },
+                "trace": []
+              },
+              {
+                "material": "pingpong",
+                "surface": "wood",
+                "seed": 5,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 17.665625000004475,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.9400000007494531,
+                  "y": 2.2720000088490067,
+                  "z": 0.04797061966115046,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": 3.469446951953614e-18,
+                  "vz": 1.9932453676253905e-35,
+                  "normal": 0.026486971271978882,
+                  "spin": 2.7391003653507356e-25
+                },
+                "trace": []
+              },
+              {
+                "material": "pingpong",
+                "surface": "wood",
+                "seed": 6,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 17.665625000004475,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.9399999410149449,
+                  "y": 2.2720000058682697,
+                  "z": 0.04797061966114984,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": -3.469446951953614e-18,
+                  "vz": 2.89399705241986e-13,
+                  "normal": 0.02648696893838391,
+                  "spin": 0.0007040505500183369
+                },
+                "trace": []
+              },
+              {
+                "material": "pingpong",
+                "surface": "wood",
+                "seed": 7,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 17.665625000004475,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.9399999835715934,
+                  "y": 2.271999942372854,
+                  "z": 0.04797061966114983,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": -3.469446951953614e-18,
+                  "vz": -3.7455108459205633e-13,
+                  "normal": 0.026486970196700186,
+                  "spin": 0.0009013726667349222
+                },
+                "trace": []
+              },
+              {
+                "material": "pingpong",
+                "surface": "wood",
+                "seed": 8,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 17.665625000004475,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.9400000177448362,
+                  "y": 2.2719999916371445,
+                  "z": 0.047970619661150404,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": 0,
+                  "vz": 0,
+                  "normal": 0.02648697126822235,
+                  "spin": 2.7391003653507356e-25
+                },
+                "trace": []
+              },
+              {
+                "material": "pingpong",
+                "surface": "wood",
+                "seed": 9,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 17.665625000004475,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.9400000355397414,
+                  "y": 2.271999947502125,
+                  "z": 0.047970619661149766,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": -3.469446951953614e-18,
+                  "vz": -3.9625366589008347e-13,
+                  "normal": 0.026486970197967193,
+                  "spin": 0.0009013535067260882
+                },
+                "trace": []
+              },
+              {
+                "material": "pingpong",
+                "surface": "wood",
+                "seed": 10,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 17.665625000004475,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.9400000304400351,
+                  "y": 2.2720000270138496,
+                  "z": 0.04797061966115018,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": 0,
+                  "vz": 1.986640019158159e-13,
+                  "normal": 0.02648696894516268,
+                  "spin": 0.000703925535293036
+                },
+                "trace": []
+              }
+            ]
+          },
+          {
+            "material": "cork",
+            "surface": "wood",
+            "successes": 10,
+            "trials": [
+              {
+                "material": "cork",
+                "surface": "wood",
+                "seed": 1,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 9.63645833333426,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.23500073522836182,
+                  "y": 0.5680000052504603,
+                  "z": 0.011992654915208897,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": 0,
+                  "vz": -1.076476789335698e-10,
+                  "normal": 0.0012324179442769932,
+                  "spin": 0.10053988687969742
+                },
+                "trace": []
+              },
+              {
+                "material": "cork",
+                "surface": "wood",
+                "seed": 2,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 9.63645833333426,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.23500073508386515,
+                  "y": 0.5680000028362595,
+                  "z": 0.01199265491520893,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": -8.673617379884035e-19,
+                  "vz": -1.0762458593295321e-10,
+                  "normal": 0.001232417944242733,
+                  "spin": 0.10053989289921704
+                },
+                "trace": []
+              },
+              {
+                "material": "cork",
+                "surface": "wood",
+                "seed": 3,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 9.63645833333426,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.23500073492602627,
+                  "y": 0.5680000003164969,
+                  "z": 0.011992654915208964,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": -8.673617379884035e-19,
+                  "vz": -1.0760069225574246e-10,
+                  "normal": 0.0012324179442072852,
+                  "spin": 0.10053989912744818
+                },
+                "trace": []
+              },
+              {
+                "material": "cork",
+                "surface": "wood",
+                "seed": 4,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 9.63645833333426,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.23500073501171667,
+                  "y": 0.5680000016776419,
+                  "z": 0.011992654915208945,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": -8.673617379884035e-19,
+                  "vz": -1.0761350491272914e-10,
+                  "normal": 0.0012324179442262937,
+                  "spin": 0.10053989578763317
+                },
+                "trace": []
+              },
+              {
+                "material": "cork",
+                "surface": "wood",
+                "seed": 5,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 9.63645833333426,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.23500073507622893,
+                  "y": 0.5680000027249822,
+                  "z": 0.011992654915208931,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": -8.673617379884035e-19,
+                  "vz": -1.0762340662397423e-10,
+                  "normal": 0.0012324179442409836,
+                  "spin": 0.10053989320662257
+                },
+                "trace": []
+              },
+              {
+                "material": "cork",
+                "surface": "wood",
+                "seed": 6,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 9.63645833333426,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.2350007352160148,
+                  "y": 0.5680000050582562,
+                  "z": 0.0119926549152089,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": 0,
+                  "vz": -1.0764567362486765e-10,
+                  "normal": 0.0012324179442740192,
+                  "spin": 0.10053988740217228
+                },
+                "trace": []
+              },
+              {
+                "material": "cork",
+                "surface": "wood",
+                "seed": 7,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 9.63645833333426,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.235000735329207,
+                  "y": 0.5680000070251303,
+                  "z": 0.011992654915208872,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": 0,
+                  "vz": -1.076646073140514e-10,
+                  "normal": 0.0012324179443021074,
+                  "spin": 0.10053988246707318
+                },
+                "trace": []
+              },
+              {
+                "material": "cork",
+                "surface": "wood",
+                "seed": 8,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 9.63645833333426,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.2350007347365661,
+                  "y": 0.5679999973881265,
+                  "z": 0.011992654915209006,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": 8.673617379884035e-19,
+                  "vz": -1.0757363062824075e-10,
+                  "normal": 0.0012324179441671375,
+                  "spin": 0.10053990618144694
+                },
+                "trace": []
+              },
+              {
+                "material": "cork",
+                "surface": "wood",
+                "seed": 9,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 9.63645833333426,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.23500073465681753,
+                  "y": 0.5679999962166403,
+                  "z": 0.011992654915209022,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": 0,
+                  "vz": -1.0756270427634026e-10,
+                  "normal": 0.0012324179441509278,
+                  "spin": 0.10053990902955721
+                },
+                "trace": []
+              },
+              {
+                "material": "cork",
+                "surface": "wood",
+                "seed": 10,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 9.63645833333426,
+                "maxInput": 8,
+                "position": {
+                  "x": 0.23500073479347006,
+                  "y": 0.5679999982548444,
+                  "z": 0.011992654915208994,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": 8.673617379884035e-19,
+                  "vz": -1.0758158253132422e-10,
+                  "normal": 0.0012324179441789362,
+                  "spin": 0.10053990410843057
+                },
+                "trace": []
+              }
+            ]
+          },
+          {
+            "material": "billiard",
+            "surface": "wood",
+            "successes": 10,
+            "trials": [
+              {
+                "material": "billiard",
+                "surface": "wood",
+                "seed": 1,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 20.11250000000225,
+                "maxInput": 8,
+                "position": {
+                  "x": 1.343025005257275,
+                  "y": 3.2461200259042347,
+                  "z": 0.06853802284086864,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": -3.469446951953614e-18,
+                  "vz": 9.751103800097933e-35,
+                  "normal": 1.6676991143281084,
+                  "spin": 1.693671355412005e-33
+                },
+                "trace": []
+              },
+              {
+                "material": "billiard",
+                "surface": "wood",
+                "seed": 2,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 20.11250000000225,
+                "maxInput": 8,
+                "position": {
+                  "x": 1.3430250052572763,
+                  "y": 3.2461200259042435,
+                  "z": 0.06853802284086864,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": -3.469446951953614e-18,
+                  "vz": 9.75110718260195e-35,
+                  "normal": 1.6676991143281084,
+                  "spin": 2.0876111227768943e-65
+                },
+                "trace": []
+              },
+              {
+                "material": "billiard",
+                "surface": "wood",
+                "seed": 3,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 20.11250000000225,
+                "maxInput": 8,
+                "position": {
+                  "x": 1.343025005257283,
+                  "y": 3.2461200259042635,
+                  "z": 0.06853802284086864,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": -3.469446951953614e-18,
+                  "vz": 0,
+                  "normal": 1.6676991143281077,
+                  "spin": 1.693671355412005e-33
+                },
+                "trace": []
+              },
+              {
+                "material": "billiard",
+                "surface": "wood",
+                "seed": 4,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 20.11250000000225,
+                "maxInput": 8,
+                "position": {
+                  "x": 1.3430250052572843,
+                  "y": 3.2461200259042715,
+                  "z": 0.06853802284086864,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": -3.469446951953614e-18,
+                  "vz": 1.0245866674199242e-34,
+                  "normal": 1.6676991143281077,
+                  "spin": 2.0876111227768943e-65
+                },
+                "trace": []
+              },
+              {
+                "material": "billiard",
+                "surface": "wood",
+                "seed": 5,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 20.11250000000225,
+                "maxInput": 8,
+                "position": {
+                  "x": 1.3430250052572876,
+                  "y": 3.246120025904293,
+                  "z": 0.06853802284086864,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": -3.469446951953614e-18,
+                  "vz": 1.07406242076233e-34,
+                  "normal": 1.6676991143281075,
+                  "spin": 2.2732072130207982e-25
+                },
+                "trace": []
+              },
+              {
+                "material": "billiard",
+                "surface": "wood",
+                "seed": 6,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 20.11250000000225,
+                "maxInput": 8,
+                "position": {
+                  "x": 1.343025005257293,
+                  "y": 3.2461200259043026,
+                  "z": 0.06853802284086864,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": -3.469446951953614e-18,
+                  "vz": 0,
+                  "normal": 1.6676991143281072,
+                  "spin": 0
+                },
+                "trace": []
+              },
+              {
+                "material": "billiard",
+                "surface": "wood",
+                "seed": 7,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 20.11250000000225,
+                "maxInput": 8,
+                "position": {
+                  "x": 1.343025005257299,
+                  "y": 3.246120025904319,
+                  "z": 0.06853802284086864,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": -3.469446951953614e-18,
+                  "vz": 0,
+                  "normal": 1.6676991143281072,
+                  "spin": 1.693671355412005e-33
+                },
+                "trace": []
+              },
+              {
+                "material": "billiard",
+                "surface": "wood",
+                "seed": 8,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 20.11250000000225,
+                "maxInput": 8,
+                "position": {
+                  "x": 1.3430250052572559,
+                  "y": 3.2461200259041236,
+                  "z": 0.06853802284086864,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": -3.469446951953614e-18,
+                  "vz": 9.166399758367679e-27,
+                  "normal": 1.66769911432811,
+                  "spin": 1.693671355412005e-33
+                },
+                "trace": []
+              },
+              {
+                "material": "billiard",
+                "surface": "wood",
+                "seed": 9,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 20.11250000000225,
+                "maxInput": 8,
+                "position": {
+                  "x": 1.3430250052572557,
+                  "y": 3.2461200259041365,
+                  "z": 0.06853802284086864,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": -3.469446951953614e-18,
+                  "vz": 0,
+                  "normal": 1.6676991143281095,
+                  "spin": 0
+                },
+                "trace": []
+              },
+              {
+                "material": "billiard",
+                "surface": "wood",
+                "seed": 10,
+                "success": true,
+                "event": "win",
+                "target": 9,
+                "time": 20.11250000000225,
+                "maxInput": 8,
+                "position": {
+                  "x": 1.343025005257262,
+                  "y": 3.246120025904151,
+                  "z": 0.06853802284086864,
+                  "dwell": 2.99999999999991,
+                  "grounded": true,
+                  "gap": -3.469446951953614e-18,
+                  "vz": 0,
+                  "normal": 1.6676991143281095,
+                  "spin": 9.092828852083193e-25
+                },
+                "trace": []
+              }
+            ]
+          }
+        ],
+        "accepted": true
+      }
+    }
+  ],
+  "rejectedHandmade": {
+    "description": "Hand-made candidate closes the starting shelf with a tall wall and no jump spot",
+    "rejected": true,
+    "trial": {
+      "material": "steel",
+      "surface": "wood",
+      "seed": 1,
+      "success": false,
+      "event": "timeout",
+      "target": 0,
+      "time": 29.999999999993257,
+      "maxInput": 8,
+      "position": {
+        "x": 0.059999997694349376,
+        "y": 0.05568326665392855,
+        "z": 0.00500018239739188,
+        "dwell": 0,
+        "grounded": true,
+        "gap": 0,
+        "vz": -2.224461969127769e-8,
+        "normal": 0.04018417606705323,
+        "spin": 0.04163813586401404
+      },
+      "trace": []
+    }
+  }
+}

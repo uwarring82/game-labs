@@ -3,10 +3,10 @@ export const G=9.81;
 export const AIR=Object.freeze({density:1.225,dragCoefficient:.47});
 const freeze=Object.freeze;
 export const BALLS=freeze({
-  steel:freeze({name:'Steel',short:'STEEL',description:'Solid steel · long coast, firm rebounds',density:7900,radius:.0075,inertiaRatio:2/5}),
-  rubber:freeze({name:'Bouncy rubber',short:'RUBBER',description:'Solid rubber · grippy, lively rebounds',density:1100,radius:.0075,inertiaRatio:2/5}),
+  steel:freeze({name:'Steel',short:'STEEL',description:'Solid steel · long coast, firm rebounds',density:7900,radius:.005,inertiaRatio:2/5}),
+  rubber:freeze({name:'Bouncy rubber',short:'RUBBER',description:'Solid rubber · grippy, lively rebounds',density:1100,radius:.005,inertiaRatio:2/5}),
   pingpong:freeze({name:'Table tennis',short:'TABLE TENNIS',description:'Hollow shell · light, springy, air resistance matters most',mass:.0027,radius:.020,inertiaRatio:2/3}),
-  cork:freeze({name:'Cork',short:'CORK',description:'Solid cork · soft contacts and short coast',density:240,radius:.0075,inertiaRatio:2/5}),
+  cork:freeze({name:'Cork',short:'CORK',description:'Solid cork · soft contacts and short coast',density:240,radius:.005,inertiaRatio:2/5}),
   billiard:freeze({name:'Billiard',short:'BILLIARD',description:'Solid resin · substantial momentum, precise rolling',mass:.170,radius:.028575,inertiaRatio:2/5})
 });
 export const SURFACES=freeze({
@@ -47,4 +47,11 @@ export function restitution(profile,speed){
  if(profile.constantRestitution)return profile.eRef;
  if(profile.eRef<=0)return 0;if(profile.eRef>=1)return 1;
  return 1/(1+(1/profile.eRef-1)*Math.max(0,speed)**.2);
+}
+
+export function patchProfile(ball,kind){
+ const base=CONTACTS[ball.material][kind==='sand'?'sand':ball.surface];
+ if(kind!=='resin')return base;
+ const rr=ball.material==='rubber'?.28:.20;
+ return {...base,b0:rr*ball.r,b1:0,muStatic:ball.material==='rubber'?.95:.28,muKinetic:ball.material==='rubber'?.70:.12,muImpact:.25,eRef:.15,eTangent:0};
 }

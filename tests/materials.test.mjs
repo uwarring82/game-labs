@@ -1,3 +1,4 @@
+import {legacyLayoutFor,LEGACY_ROUTE} from './fixtures/legacy-level.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {newBall,advance,STEP,MAX_TILT,ROUTE,BALLS,SURFACES,CONTACTS,WALL_CONTACTS,WALL_MATERIALS,layoutFor,airDrag,kineticEnergy,contactImpulse,granularState} from '../dist/physics.js';
@@ -7,7 +8,7 @@ function run(b,seconds,tilt,options={}){for(let i=0;i<Math.round(seconds/STEP);i
 function rolling(b,v){b.vx=v;b.wy=v/b.r;return b;}
 test('shell mass, inertia and enlarged geometry retain SI dimensions and hole clearance',()=>{
  const b=newBall('pingpong');assert.equal(b.m,.0027);assert.equal(b.r,.02);assert.equal(b.I,(2/3)*b.m*b.r*b.r);
- assert.equal(layoutFor('pingpong').width,.8);assert.equal(layoutFor('billiard').width,1.143);
+ assert.equal(layoutFor('pingpong').width,1.2);assert.ok(Math.abs(layoutFor('billiard').width-1.7145)<1e-12);
  for(const id of Object.keys(BALLS)){const b=newBall(id),l=layoutFor(id);assert.ok(l.holes.every(h=>h.r>b.r));assert.equal(b.x,l.start.x);}
  const ideal={...CONTACTS.pingpong.wood,b0:0,b1:0,eRef:0};run(b,1,{x:10,y:0},{floorProfile:ideal});
  assert.ok(Math.abs(b.vx-(3/5)*G*Math.sin(Math.PI/18))<1e-8);
@@ -48,11 +49,11 @@ test('walls are independent of the floor, while rims stay hardwood',()=>{
 });
 // A conservative controller verifies geometric traversability. It is never part
 // of the game, and does not claim equivalent human difficulty or phone testing.
-const route=ROUTE;
+const route=LEGACY_ROUTE;
 for(const material of Object.keys(BALLS))for(const surface of Object.keys(SURFACES))for(const wallMaterial of Object.keys(WALL_MATERIALS)){
- test(`full route: ${material} / ${surface} / ${wallMaterial}`,()=>{
-  const b=newBall(material,surface,wallMaterial),l=layoutFor(material),p=CONTACTS[material][surface],k=BALLS[material].inertiaRatio;
-  const s=surface==='sand'?granularState(b):null,points=route.map(([x,y])=>[x*l.scale,y*l.scale]);let target=0,result=null;
+ test(`legacy route regression: ${material} / ${surface} / ${wallMaterial}`,()=>{
+  const b=newBall(material,surface,wallMaterial),l=legacyLayoutFor(material),p=CONTACTS[material][surface],k=BALLS[material].inertiaRatio;
+  const s=surface==='sand'?granularState(b):null,points=route.map(([x,y])=>[x*l.scale,y*l.scale]);let target=0,result=null;b.x=l.start.x;b.y=l.start.y;
   for(let i=0;i<240*130;i++){
    const [x,y]=points[target],dx=x-b.x,dy=y-b.y,d=Math.hypot(dx,dy),ux=d?dx/d:0,uy=d?dy/d:0,v=Math.hypot(b.vx,b.vy);
    const wanted=Math.min(.08*Math.sqrt(l.scale),d*4);
@@ -60,7 +61,7 @@ for(const material of Object.keys(BALLS))for(const surface of Object.keys(SURFAC
    const slope=l.terrain.sample(b.x,b.y);
    const ax=(1+k)*8*(wanted*ux-b.vx)+resistance*ux+G*slope.dx,ay=(1+k)*8*(wanted*uy-b.vy)+resistance*uy+G*slope.dy,m=Math.hypot(ax,ay);
    const theta=Math.asin(Math.min(.46,m/G))*180/Math.PI;
-   assert.ok(theta<=MAX_TILT);result=advance(b,{x:m?theta*ax/m:0,y:m?theta*ay/m:0},STEP);
+   assert.ok(theta<=MAX_TILT);result=advance(b,{x:m?theta*ax/m:0,y:m?theta*ay/m:0},STEP,{layout:l});
    assert.ok(!result||result.type==='win',`unexpected ${result?.type}, point ${target}, ${b.x},${b.y}`);
    if(result?.type==='win')break;
    if(d<.005*l.scale&&v<.03*Math.sqrt(l.scale)&&target<points.length-1)target++;

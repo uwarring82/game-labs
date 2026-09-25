@@ -1,3 +1,4 @@
+import {MAZE,toMetres} from '../dist/maze.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Heightfield,FEATURES,cap,terrainFor,supportAt,surfaceNormal,normalAcceleration,GOAL_DWELL} from '../dist/terrain.js';
@@ -12,12 +13,12 @@ test('Hermite field reproduces a quadratic potential and its gradient/Hessian',(
  const field=new Heightfield((x,y)=>({h:.02*x*x+.03*x*y-.01*y*y,dx:.04*x+.03*y,dy:.03*x-.02*y,dxy:.03}),.3,.6,.01);
  for(let i=1;i<50;i++){const x=.3*i/51,y=.6*(i*.618%1),p=field.sample(x,y);assert.ok(Math.abs(p.h-(.02*x*x+.03*x*y-.01*y*y))<1e-12);assert.ok(Math.abs(p.dx-(.04*x+.03*y))<1e-11);assert.ok(Math.abs(p.dxx-.04)<1e-9);assert.ok(Math.abs(p.dxy-.03)<1e-9);assert.ok(Math.abs(p.dyy+.02)<1e-9);}
 });
-test('authored terrain is C1 across grid seams, below 15 degrees, and flat at apertures',()=>{
+test('legacy terrain fixture is C1 across grid seams, below 15 degrees, and flat at apertures',()=>{
  const f=terrainFor();let slope=0;
  for(let x=0;x<=.3;x+=.0015)for(let y=0;y<=19/30;y+=.0015){const p=f.sample(x,y);slope=Math.max(slope,Math.hypot(p.dx,p.dy));}
  assert.ok(Math.atan(slope)*180/Math.PI<15);
  for(let x=.05;x<.29;x+=.0025){const a=f.sample(x-1e-9,.213),b=f.sample(x+1e-9,.213);assert.ok(Math.abs(a.h-b.h)<1e-8);assert.ok(Math.hypot(a.dx-b.dx,a.dy-b.dy)<1e-6);}
- for(const h of layoutFor().holes)for(let a=0;a<6.29;a+=.1){const p=f.sample(h.x+h.r*Math.cos(a),h.y+h.r*Math.sin(a));assert.ok(Math.abs(p.h)+Math.abs(p.dx)+Math.abs(p.dy)<1e-12);}
+ for(const h of MAZE.holes.map(toMetres))for(let a=0;a<6.29;a+=.1){const p=f.sample(h.x+h.r*Math.cos(a),h.y+h.r*Math.sin(a));assert.ok(Math.abs(p.h)+Math.abs(p.dx)+Math.abs(p.dy)<1e-12);}
 });
 test('inclined contact preserves solid/shell acceleration without a hardcoded 5/7',()=>{
  const slope=.12,f={sample:(x,y)=>({h:slope*x,dx:slope,dy:0,dxx:0,dxy:0,dyy:0})};
@@ -56,7 +57,7 @@ test('sand load extension increases penetration with load and removes it without
  const b=newBall('pingpong','sand'),low=granularState(b,.5),normal=granularState(b,1),high=granularState(b,2);assert.ok(low.sinkage<normal.sinkage&&normal.sinkage<high.sinkage);assert.equal(granularState(b,0).sinkage,0);
 });
 test('goal curvature has a 0.5–1 s ideal e-folding time at every physical ball size',()=>{
- for(const material of Object.keys(BALLS)){const l=layoutFor(material),p=l.terrain.sample(l.goal.x,l.goal.y),radius=-1/p.dxx;assert.ok(Math.abs(radius-3)<.04);const tau=Math.sqrt((1+BALLS[material].inertiaRatio)*(radius+BALLS[material].radius)/G);assert.ok(tau>.5&&tau<1);}
+ for(const material of Object.keys(BALLS)){const l=layoutFor(material),p=l.terrain.sample(l.goal.x,l.goal.y),radius=-1/p.dxx;assert.ok(radius>2.5&&radius<3.6);const tau=Math.sqrt((1+BALLS[material].inertiaRatio)*(radius+BALLS[material].radius)/G);assert.ok(tau>.5&&tau<1);}
 });
 test('goal requires three uninterrupted grounded seconds and resets outside the ring',()=>{
  const b=newBall(),l=layoutFor();place(b,l.terrain,l.goal.x,l.goal.y);

@@ -2,8 +2,9 @@ const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 export function rollingVoice(b){
  const speed=Math.hypot(b.vx,b.vy,b.vz),slip=b.slip;
  if(!b.grounded)return{gain:0,frequency:400,q:.7};
- const amount=b.surface==='ice'?Math.max(0,slip-.02):speed;
- const tones={wood:[330,1300,.9,.055],sand:[1300,1600,.4,.08],ice:[2200,2200,1.2,.06],baize:[240,550,.5,.025]}[b.surface];
+ const surface=b.contactSurface==='resin'?'wood':b.contactSurface??b.surface;
+ const amount=surface==='ice'?Math.max(0,slip-.02):speed;
+ const tones={wood:[330,1300,.9,.055],sand:[1300,1600,.4,.08],ice:[2200,2200,1.2,.06],baize:[240,550,.5,.025]}[surface];
  return{gain:clamp(Math.sqrt(amount)*tones[3],0,.12),frequency:clamp(tones[0]+amount*tones[1],100,6500),q:tones[2]};
 }
 export function impactVoice(e){

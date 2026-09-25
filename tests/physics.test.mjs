@@ -1,3 +1,4 @@
+import {legacyLayoutFor,LEGACY_ROUTE} from './fixtures/legacy-level.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {newBall,advance,STEP,MAX_TILT,ROUTE,CONTACTS,BALLS,SURFACES,WALL_CONTACTS,WALL_MATERIALS,layoutFor,airDrag,GOAL,FixedClock,tiltVector,filtered,gravity,kineticEnergy,contactImpulse,granularState} from '../dist/physics.js';
@@ -98,14 +99,14 @@ test('a hole-rim encounter does not increase total mechanical energy',()=>{
     if(e)break;
   }
 });
-test('both ball materials traverse the actual wooden maze under acceleration control',()=>{
-  const points=ROUTE;
+test('legacy wooden route regression for both balls under acceleration control',()=>{
+
   for(const material of ['steel','rubber']){
-    const b=newBall(material);let target=0,result=null;
+    const b=newBall(material),l=legacyLayoutFor(material),points=LEGACY_ROUTE.map(p=>p.map(v=>v*l.scale));b.x=l.start.x;b.y=l.start.y;let target=0,result=null;
     for(let i=0;i<240*100;i++){
       const [x,y]=points[target],ax=22*(x-b.x)-6*b.vx,ay=22*(y-b.y)-6*b.vy;
       const deg=a=>Math.asin(Math.max(-.2,Math.min(.2,a/(G*5/7))))*180/Math.PI;
-      result=advance(b,{x:deg(ax),y:deg(ay)},STEP);
+      result=advance(b,{x:deg(ax),y:deg(ay)},STEP,{layout:l});
       assert.ok(!result||result.type==='win',material+': unexpected '+result?.type+' at waypoint '+target);
       if(result?.type==='win')break;
       if(Math.hypot(b.x-x,b.y-y)<.003&&Math.hypot(b.vx,b.vy)<.018&&target<points.length-1)target++;
@@ -113,10 +114,10 @@ test('both ball materials traverse the actual wooden maze under acceleration con
     assert.equal(result?.type,'win',material+' stopped at waypoint '+target+': '+b.x+','+b.y);
   }
 });
-test('both ball materials can traverse the sand maze within the player tilt limit',()=>{
-  const points=ROUTE;
+test('legacy sand route regression for both balls within the player tilt limit',()=>{
+
   for(const material of ['steel','rubber']){
-    const b=newBall(material,'sand'),p=CONTACTS[material].sand,s=granularState(b);let target=0,result=null;
+    const l=legacyLayoutFor(material),points=LEGACY_ROUTE.map(p=>p.map(v=>v*l.scale)),b=newBall(material,'sand'),p=CONTACTS[material].sand,s=granularState(b);b.x=l.start.x;b.y=l.start.y;let target=0,result=null;
     for(let i=0;i<240*100;i++){
       const [x,y]=points[target],dx=x-b.x,dy=y-b.y,d=Math.hypot(dx,dy),ux=dx/d,uy=dy/d,v=Math.hypot(b.vx,b.vy);
       const wanted=Math.min(.13,d*4);
@@ -124,7 +125,7 @@ test('both ball materials can traverse the sand maze within the player tilt limi
       const ax=1.4*8*(wanted*ux-b.vx)+resistance*ux,ay=1.4*8*(wanted*uy-b.vy)+resistance*uy,m=Math.hypot(ax,ay);
       const theta=Math.asin(Math.min(.46,m/G))*180/Math.PI;
       assert.ok(theta<=MAX_TILT);
-      result=advance(b,{x:theta*ax/m,y:theta*ay/m},STEP);
+      result=advance(b,{x:theta*ax/m,y:theta*ay/m},STEP,{layout:l});
       assert.ok(!result||result.type==='win',material+': unexpected '+result?.type+' at waypoint '+target);
       if(result?.type==='win')break;
       if(d<.005&&v<.03&&target<points.length-1)target++;

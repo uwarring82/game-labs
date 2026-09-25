@@ -1,53 +1,239 @@
 {
-  "model": 5,
-  "terrain": {
-    "gridStep": 0.0025,
-    "goalCurvatureRadius": 3,
-    "goalDwell": 3,
-    "maxAuthoredSlopeDegrees": 15,
-    "baseFeatures": [
-      {
-        "id": "hill",
-        "label": "RISE",
-        "x": 0.145,
-        "y": 0.127,
-        "rx": 0.045,
-        "ry": 0.026,
-        "height": 0.002
-      },
-      {
-        "id": "dip",
-        "label": "DIP",
-        "x": 0.147,
-        "y": 0.213,
-        "rx": 0.047,
-        "ry": 0.04,
-        "height": -0.0036
-      },
-      {
-        "id": "lip",
-        "label": "LIP",
-        "x": 0.209,
-        "y": 0.424,
-        "rx": 0.025,
-        "ry": 0.025,
-        "height": 0.0021
-      },
-      {
-        "id": "goal",
-        "label": "HOLD 3s",
-        "x": 0.26,
-        "y": 0.585,
-        "rx": 0.03,
-        "ry": 0.03,
-        "height": 0.000049999999999999996
-      }
-    ],
-    "obstacleHeightScaling": "linear in board scale",
-    "goalHeightScaling": "quadratic in board scale"
+  "model": 6,
+  "taskCard": "Relief v0.1",
+  "endorsement": {
+    "version": "Relief v0.1",
+    "status": "draft, unendorsed",
+    "endorser": null,
+    "required": "U. Warring after two-phone motion acceptance and bot rejection evidence"
   },
   "units": "SI",
-  "evidence": "Provisional scenario parameters. Billiard/baize muKinetic=.20 and rolling deceleration/g=.01 are pooltool reference defaults; billiard/rubber e=.98 and impact friction=.14 are borrowed from Mathavan et al., not fitted to this geometry. All other contact numbers are assumptions.",
+  "evidence": "Scenario coefficients, not calibrated specimens. Billiard/baize muK=.20 and deceleration=.01g are pooltool defaults; billiard/rubber e=.98 and mu=.14 are borrowed literature values. Resin is an uncalibrated spatial patch.",
+  "terrain": {
+    "width": 0.3,
+    "height": 0.6333333333333333,
+    "radius": 0.005,
+    "tiltBudget": 8,
+    "goalTime": 0.7,
+    "seed": 371,
+    "grid": 0.0025,
+    "gaussians": [
+      {
+        "x": 0.10151939969323574,
+        "y": 0.18671865513641386,
+        "a": 0.068,
+        "b": 0.032,
+        "height": -0.009,
+        "angle": 0.4019454197026789
+      },
+      {
+        "x": 0.15260375460144132,
+        "y": 0.26357223601080476,
+        "a": 0.067,
+        "b": 0.031,
+        "height": -0.008,
+        "angle": -0.42161912355804815
+      },
+      {
+        "x": 0.21603385962173344,
+        "y": 0.15813113772403448,
+        "a": 0.075,
+        "b": 0.031,
+        "height": 0.009,
+        "angle": 0.9611638899194077
+      },
+      {
+        "x": 0.1325807546125725,
+        "y": 0.3275157641172409,
+        "a": 0.08,
+        "b": 0.035,
+        "height": 0.007,
+        "angle": -0.20456791337346658
+      },
+      {
+        "x": 0.07211739270575344,
+        "y": 0.44303781614545734,
+        "a": 0.077,
+        "b": 0.033,
+        "height": 0.005,
+        "angle": 0.8323920968454331
+      },
+      {
+        "x": 0.22874431574624032,
+        "y": 0.5651117825563996,
+        "a": 0.105,
+        "b": 0.07,
+        "height": 0.015,
+        "angle": 0.06764861651463434
+      }
+    ],
+    "heightGain": 0.4934540800896942,
+    "goalRadius": 3.4285,
+    "holes": [
+      {
+        "x": 0.10509794270931631,
+        "y": 0.19015023242336154,
+        "r": 0.00825,
+        "z": -0.004515163131588206
+      },
+      {
+        "x": 0.1567563307625791,
+        "y": 0.243913301715636,
+        "r": 0.00825,
+        "z": -0.004897841780544778
+      }
+    ],
+    "walls": [
+      {
+        "points": [
+          [
+            0.003,
+            0.003
+          ],
+          [
+            0.297,
+            0.003
+          ]
+        ],
+        "height": 0.03,
+        "kind": "border"
+      },
+      {
+        "points": [
+          [
+            0.297,
+            0.003
+          ],
+          [
+            0.297,
+            0.6303333333333333
+          ]
+        ],
+        "height": 0.03,
+        "kind": "border"
+      },
+      {
+        "points": [
+          [
+            0.297,
+            0.6303333333333333
+          ],
+          [
+            0.003,
+            0.6303333333333333
+          ]
+        ],
+        "height": 0.03,
+        "kind": "border"
+      },
+      {
+        "points": [
+          [
+            0.003,
+            0.6303333333333333
+          ],
+          [
+            0.003,
+            0.003
+          ]
+        ],
+        "height": 0.03,
+        "kind": "border"
+      },
+      {
+        "points": [
+          [
+            0.003,
+            0.363
+          ],
+          [
+            0.07,
+            0.366
+          ],
+          [
+            0.13,
+            0.363
+          ],
+          [
+            0.174,
+            0.365
+          ],
+          [
+            0.198,
+            0.37
+          ],
+          [
+            0.223,
+            0.372
+          ],
+          [
+            0.249,
+            0.37
+          ],
+          [
+            0.277,
+            0.363
+          ],
+          [
+            0.297,
+            0.359
+          ]
+        ],
+        "height": 0.01,
+        "kind": "low"
+      },
+      {
+        "points": [
+          [
+            0.127,
+            0.361
+          ],
+          [
+            0.105,
+            0.359
+          ],
+          [
+            0.087,
+            0.369
+          ],
+          [
+            0.078,
+            0.396
+          ],
+          [
+            0.087,
+            0.425
+          ],
+          [
+            0.106,
+            0.443
+          ],
+          [
+            0.124,
+            0.436
+          ]
+        ],
+        "height": 0.03,
+        "kind": "pocket"
+      }
+    ],
+    "patches": [
+      {
+        "kind": "sand",
+        "x": 0.186,
+        "y": 0.505,
+        "rx": 0.0342,
+        "ry": 0.0228
+      },
+      {
+        "kind": "resin",
+        "x": 0.085,
+        "y": 0.465,
+        "rx": 0.024,
+        "ry": 0.018
+      }
+    ]
+  },
   "air": {
     "density": 1.225,
     "dragCoefficient": 0.47
@@ -58,7 +244,7 @@
       "short": "STEEL",
       "description": "Solid steel · long coast, firm rebounds",
       "density": 7900,
-      "radius": 0.0075,
+      "radius": 0.005,
       "inertiaRatio": 0.4
     },
     "rubber": {
@@ -66,7 +252,7 @@
       "short": "RUBBER",
       "description": "Solid rubber · grippy, lively rebounds",
       "density": 1100,
-      "radius": 0.0075,
+      "radius": 0.005,
       "inertiaRatio": 0.4
     },
     "pingpong": {
@@ -82,7 +268,7 @@
       "short": "CORK",
       "description": "Solid cork · soft contacts and short coast",
       "density": 240,
-      "radius": 0.0075,
+      "radius": 0.005,
       "inertiaRatio": 0.4
     },
     "billiard": {
@@ -455,6 +641,58 @@
         "effectiveModulus": 3000000,
         "constantRestitution": true
       }
+    }
+  },
+  "resin": {
+    "steel": {
+      "muStatic": 0.28,
+      "muKinetic": 0.12,
+      "muImpact": 0.25,
+      "eRef": 0.15,
+      "eTangent": 0,
+      "b0": 0.001,
+      "b1": 0,
+      "effectiveModulus": 1000000000
+    },
+    "rubber": {
+      "muStatic": 0.95,
+      "muKinetic": 0.7,
+      "muImpact": 0.25,
+      "eRef": 0.15,
+      "eTangent": 0,
+      "b0": 0.0014000000000000002,
+      "b1": 0,
+      "effectiveModulus": 5000000
+    },
+    "pingpong": {
+      "muStatic": 0.28,
+      "muKinetic": 0.12,
+      "muImpact": 0.25,
+      "eRef": 0.15,
+      "eTangent": 0,
+      "b0": 0.004,
+      "b1": 0,
+      "effectiveModulus": 10000000
+    },
+    "cork": {
+      "muStatic": 0.28,
+      "muKinetic": 0.12,
+      "muImpact": 0.25,
+      "eRef": 0.15,
+      "eTangent": 0,
+      "b0": 0.001,
+      "b1": 0,
+      "effectiveModulus": 2000000
+    },
+    "billiard": {
+      "muStatic": 0.28,
+      "muKinetic": 0.12,
+      "muImpact": 0.25,
+      "eRef": 0.15,
+      "eTangent": 0,
+      "b0": 0.0057150000000000005,
+      "b1": 0,
+      "effectiveModulus": 1000000000
     }
   }
 }
