@@ -1,5 +1,51 @@
 {
-  "model": 4,
+  "model": 5,
+  "terrain": {
+    "gridStep": 0.0025,
+    "goalCurvatureRadius": 3,
+    "goalDwell": 3,
+    "maxAuthoredSlopeDegrees": 15,
+    "baseFeatures": [
+      {
+        "id": "hill",
+        "label": "RISE",
+        "x": 0.145,
+        "y": 0.127,
+        "rx": 0.045,
+        "ry": 0.026,
+        "height": 0.002
+      },
+      {
+        "id": "dip",
+        "label": "DIP",
+        "x": 0.147,
+        "y": 0.213,
+        "rx": 0.047,
+        "ry": 0.04,
+        "height": -0.0036
+      },
+      {
+        "id": "lip",
+        "label": "LIP",
+        "x": 0.209,
+        "y": 0.424,
+        "rx": 0.025,
+        "ry": 0.025,
+        "height": 0.0021
+      },
+      {
+        "id": "goal",
+        "label": "HOLD 3s",
+        "x": 0.26,
+        "y": 0.585,
+        "rx": 0.03,
+        "ry": 0.03,
+        "height": 0.000049999999999999996
+      }
+    ],
+    "obstacleHeightScaling": "linear in board scale",
+    "goalHeightScaling": "quadratic in board scale"
+  },
   "units": "SI",
   "evidence": "Provisional scenario parameters. Billiard/baize muKinetic=.20 and rolling deceleration/g=.01 are pooltool reference defaults; billiard/rubber e=.98 and impact friction=.14 are borrowed from Mathavan et al., not fitted to this geometry. All other contact numbers are assumptions.",
   "air": {

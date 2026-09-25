@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {newBall,advance,STEP,MAX_TILT,ROUTE,BALLS,SURFACES,CONTACTS,WALL_CONTACTS,WALL_MATERIALS,layoutFor,airDrag,kineticEnergy,contactImpulse,granularState} from '../dist/physics.js';
 import {G,AIR} from '../dist/materials.js';
-const free={walls:[],holes:[],goal:false,bounds:false,air:false};
+const free={terrain:false,walls:[],holes:[],goal:false,bounds:false,air:false};
 function run(b,seconds,tilt,options={}){for(let i=0;i<Math.round(seconds/STEP);i++)advance(b,tilt,STEP,{...free,...options});return b;}
 function rolling(b,v){b.vx=v;b.wy=v/b.r;return b;}
 test('shell mass, inertia and enlarged geometry retain SI dimensions and hole clearance',()=>{
@@ -57,7 +57,8 @@ for(const material of Object.keys(BALLS))for(const surface of Object.keys(SURFAC
    const [x,y]=points[target],dx=x-b.x,dy=y-b.y,d=Math.hypot(dx,dy),ux=d?dx/d:0,uy=d?dy/d:0,v=Math.hypot(b.vx,b.vy);
    const wanted=Math.min(.08*Math.sqrt(l.scale),d*4);
    const resistance=G*((p.b0+p.b1*v+(s?.rollingArm??0))/b.r+(s?.ploughCoefficient??0))+(s?.inertialDrag??0)*v*v/b.m;
-   const ax=(1+k)*8*(wanted*ux-b.vx)+resistance*ux,ay=(1+k)*8*(wanted*uy-b.vy)+resistance*uy,m=Math.hypot(ax,ay);
+   const slope=l.terrain.sample(b.x,b.y);
+   const ax=(1+k)*8*(wanted*ux-b.vx)+resistance*ux+G*slope.dx,ay=(1+k)*8*(wanted*uy-b.vy)+resistance*uy+G*slope.dy,m=Math.hypot(ax,ay);
    const theta=Math.asin(Math.min(.46,m/G))*180/Math.PI;
    assert.ok(theta<=MAX_TILT);result=advance(b,{x:m?theta*ax/m:0,y:m?theta*ay/m:0},STEP);
    assert.ok(!result||result.type==='win',`unexpected ${result?.type}, point ${target}, ${b.x},${b.y}`);

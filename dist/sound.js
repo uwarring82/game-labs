@@ -1,6 +1,6 @@
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 export function rollingVoice(b){
- const speed=Math.hypot(b.vx,b.vy),slip=b.slip;
+ const speed=Math.hypot(b.vx,b.vy,b.vz),slip=b.slip;
  if(!b.grounded)return{gain:0,frequency:400,q:.7};
  const amount=b.surface==='ice'?Math.max(0,slip-.02):speed;
  const tones={wood:[330,1300,.9,.055],sand:[1300,1600,.4,.08],ice:[2200,2200,1.2,.06],baize:[240,550,.5,.025]}[b.surface];

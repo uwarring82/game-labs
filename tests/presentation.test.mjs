@@ -26,7 +26,7 @@ test('contact notifications report physical wall/rim impulses without changing t
 });
 // Instrumented 2D context: verifies drawing execution/cache behaviour, not pixels.
 function fakeCanvas(){const stats={draws:0,clears:0,strokes:0};const noop=(...args)=>{for(const v of args)if(typeof v==='number')assert.ok(Number.isFinite(v));};
- const ctx=new Proxy({stats,drawImage(...a){stats.draws++;noop(...a);},clearRect(...a){stats.clears++;noop(...a);},stroke(){stats.strokes++;},createLinearGradient:()=>({addColorStop:noop}),createRadialGradient:()=>({addColorStop:noop})},{get:(o,k)=>k in o?o[k]:noop});
+ const ctx=new Proxy({stats,createImageData:(w,h)=>({data:new Uint8ClampedArray(w*h*4)}),drawImage(...a){stats.draws++;noop(...a);},clearRect(...a){stats.clears++;noop(...a);},stroke(){stats.strokes++;},createLinearGradient:()=>({addColorStop:noop}),createRadialGradient:()=>({addColorStop:noop})},{get:(o,k)=>k in o?o[k]:noop});
  return{width:300,height:150,style:{},getContext:()=>ctx};
 }
 test('all material render paths run, surface textures cache, marks survive resizing',()=>{

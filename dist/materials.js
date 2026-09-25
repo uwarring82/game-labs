@@ -34,10 +34,11 @@ export const WALL_CONTACTS=freeze(Object.fromEntries(Object.keys(BALLS).map(id=>
  ...({steel:{muStatic:.70,muKinetic:.55,muImpact:.55,eRef:.88,eTangent:.15},rubber:{muStatic:.90,muKinetic:.75,muImpact:.75,eRef:.88,eTangent:.4},pingpong:{muStatic:.60,muKinetic:.45,muImpact:.45,eRef:.90,eTangent:.2},cork:{muStatic:.70,muKinetic:.50,muImpact:.50,eRef:.35,eTangent:0},billiard:{muStatic:.14,muKinetic:.14,muImpact:.14,eRef:.98,eTangent:0,constantRestitution:true}}[id]),
  effectiveModulus:3e6
 })})])));
-export function granularState(ball){
+export function granularState(ball,loadRatio=1){
  const s=SURFACES.sand;
- // Extrapolated from solid spheres/glass beads. Shell uses bulk density m/volume.
- const sinkage=Math.min(s.depth,s.sinkFactor*ball.r*(ball.density/s.density)**.75);
+ // Quasi-static load extension: effective density scales with N/(mg).
+ // Provisional, without granular memory. Shell uses bulk density m/volume.
+ const sinkage=Math.min(s.depth,s.sinkFactor*ball.r*(ball.density/s.density*Math.max(0,loadRatio))**.75);
  const z=Math.min(sinkage,2*ball.r),a=Math.sqrt(Math.max(0,2*ball.r*z-z*z));
  const area=ball.r*ball.r*Math.acos((ball.r-z)/ball.r)-(ball.r-z)*a;
  return {sinkage,footprint:a,area,ploughCoefficient:s.ploughFactor*z/ball.r,rollingArm:s.rollingFactor*z,inertialDrag:s.inertialFactor*s.density*area};

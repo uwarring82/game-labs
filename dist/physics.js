@@ -1,6 +1,7 @@
 import { G, AIR, BALLS, CONTACTS, WALL_CONTACTS, granularState, restitution } from './materials.js';
 export { BALLS, CONTACTS, WALL_CONTACTS, WALL_MATERIALS, SURFACES, granularState } from './materials.js';
 import {BOARD,MAZE,toMetres} from './maze.js';
+import {terrainFor,flatTerrain,supportAt,normalAcceleration,GOAL_DWELL} from './terrain.js';
 export const W=BOARD.width*BOARD.metresPerUnit,H=BOARD.height*BOARD.metresPerUnit,R=.0075,STEP=1/240,MAX_TILT=28;
 export const START=toMetres(MAZE.start),GOAL=toMetres(MAZE.goal),WALLS=MAZE.walls.map(toMetres),HOLES=MAZE.holes.map(toMetres);
 export const ROUTE=MAZE.route.map(p=>p.map(v=>v*BOARD.metresPerUnit));
@@ -22,13 +23,13 @@ export function layoutFor(material='steel'){
   if(layouts.has(material))return layouts.get(material);
   const scale=BALLS[material].radius/R;
   const scaleObject=o=>Object.fromEntries(Object.entries(o).map(([k,v])=>[k,v*scale]));
-  const layout={scale,width:W*scale,height:H*scale,start:scaleObject(START),goal:scaleObject(GOAL),walls:WALLS.map(w=>({...scaleObject(w),bottom:-.025*scale})),holes:HOLES.map(scaleObject)};
+  const layout={scale,width:W*scale,height:H*scale,start:scaleObject(START),goal:scaleObject(GOAL),walls:WALLS.map(w=>({...scaleObject(w),bottom:-.025*scale})),holes:HOLES.map(scaleObject),terrain:terrainFor(scale)};
   layouts.set(material,layout);return layout;
 }
-export function newBall(material='steel',surface='wood',wallMaterial='wood'){
+export function newBall(material='steel',surface='wood',wallMaterial='wood',openEdges=false){
   const p=BALLS[material];if(!p||!CONTACTS[material][surface]||!WALL_CONTACTS[material][wallMaterial])throw new Error('Unknown material or surface');
   const r=p.radius,m=p.mass??4/3*Math.PI*r**3*p.density;
-  return {...layoutFor(material).start,z:r,vx:0,vy:0,vz:0,wx:0,wy:0,wz:0,q:[1,0,0,0],time:0,r,m,I:p.inertiaRatio*m*r*r,density:m/(4/3*Math.PI*r**3),material,surface,wallMaterial,grounded:true,slip:0,regime:'rest',impacts:0,skipped:0,overHole:null};
+  return {...layoutFor(material).start,z:r,vx:0,vy:0,vz:0,wx:0,wy:0,wz:0,q:[1,0,0,0],time:0,r,m,I:p.inertiaRatio*m*r*r,density:m/(4/3*Math.PI*r**3),material,surface,wallMaterial,openEdges,dwell:0,groundHeight:0,supportGap:0,normalLoad:m*G,grounded:true,slip:0,regime:'rest',impacts:0,skipped:0,overHole:null};
 }
 export function kineticEnergy(b){return .5*b.m*(b.vx*b.vx+b.vy*b.vy+b.vz*b.vz)+.5*b.I*(b.wx*b.wx+b.wy*b.wy+b.wz*b.wz);}
 export function contactVelocity(b,n){
@@ -73,10 +74,17 @@ export function resolveWall(b,w,p=WALL_CONTACTS[b.material][b.wallMaterial],onCo
   return true;
 }
 function openingAt(x,y,holes){return holes.findIndex(h=>Math.hypot(x-h.x,y-h.y)<h.r);}
-function floorContact(b,holes,p,rimProfile,onContact){
+function floorContact(b,holes,p,rimProfile,onContact,field,layout,finiteFloor){
+  if(finiteFloor&&(b.x<0||b.x>layout.width||b.y<0||b.y>layout.height)){
+    // Rounded sphere contact with the sharp, flat outer edge. Never extend the floor.
+    const x=clamp(b.x,0,layout.width),y=clamp(b.y,0,layout.height),dx=b.x-x,dy=b.y-y,dz=Math.max(0,b.z),d=Math.hypot(dx,dy,dz);
+    if(d<b.r&&d>1e-12){const n={x:dx/d,y:dy/d,z:dz/d},pen=b.r-d;b.x+=n.x*pen;b.y+=n.y*pen;b.z+=n.z*pen;contactImpulse(b,n,rimProfile,{onContact,kind:'rim'});}
+    return false;
+  }
   const opening=openingAt(b.x,b.y,holes);
   if(opening<0){
-    if(b.z<=b.r+1e-9){b.z=Math.max(b.r,b.z);contactImpulse(b,{x:0,y:0,z:1},p,{onContact,kind:'floor'});return b.vz<.02;}
+    const s=supportAt(b,field);b.groundHeight=s.h;
+    if(s.gap<=1e-9){const pen=Math.max(0,-s.gap);b.x+=s.n.x*pen;b.y+=s.n.y*pen;b.z+=s.n.z*pen;contactImpulse(b,s.n,p,{onContact,kind:'floor'});return b.vx*s.n.x+b.vy*s.n.y+b.vz*s.n.z<.02;}
     return false;
   }
   // Nearest point on an ideal rigid circular aperture. Above z=0: rim;
@@ -91,17 +99,16 @@ function floorContact(b,holes,p,rimProfile,onContact){
   }
   return false;
 }
-function rollingLoss(b,normal,dt,p,granular){
-  const omega=Math.hypot(b.wx,b.wy),speed=omega*b.r;
-  const arm=p.b0+p.b1*speed+(granular?.rollingArm??0);
-  if(omega>0){const decrement=Math.min(omega,normal*arm*dt/b.I);b.wx*=1-decrement/omega;b.wy*=1-decrement/omega;}
+function rollingLoss(b,normal,dt,p,granular,n){
+  const twist=b.wx*n.x+b.wy*n.y+b.wz*n.z,wx=b.wx-twist*n.x,wy=b.wy-twist*n.y,wz=b.wz-twist*n.z;
+  const omega=Math.hypot(wx,wy,wz),arm=p.b0+p.b1*omega*b.r+(granular?.rollingArm??0);
+  if(omega>0){const f=Math.min(1,normal*arm*dt/(b.I*omega));b.wx-=wx*f;b.wy-=wy*f;b.wz-=wz*f;}
   const contactRadius=granular?.footprint??Math.cbrt(3*normal*b.r/(4*p.effectiveModulus));
-  const spinDrop=Math.min(Math.abs(b.wz),(3*Math.PI/16)*p.muKinetic*normal*contactRadius*dt/b.I);
-  b.wz-=Math.sign(b.wz)*spinDrop;
+  const spinDrop=Math.sign(twist)*Math.min(Math.abs(twist),(3*Math.PI/16)*p.muKinetic*normal*contactRadius*dt/b.I);
+  b.wx-=n.x*spinDrop;b.wy-=n.y*spinDrop;b.wz-=n.z*spinDrop;
   if(granular){
-    const v=Math.hypot(b.vx,b.vy);
-    if(v){const force=granular.ploughCoefficient*normal+granular.inertialDrag*v*v;
-      const dv=Math.min(v,force*dt/b.m);b.vx*=1-dv/v;b.vy*=1-dv/v;}
+    const vn=b.vx*n.x+b.vy*n.y+b.vz*n.z,vx=b.vx-vn*n.x,vy=b.vy-vn*n.y,vz=b.vz-vn*n.z,v=Math.hypot(vx,vy,vz);
+    if(v){const force=granular.ploughCoefficient*normal+granular.inertialDrag*v*v,f=Math.min(1,force*dt/(b.m*v));b.vx-=vx*f;b.vy-=vy*f;b.vz-=vz*f;}
   }
 }
 function rotate(b,dt){
@@ -117,39 +124,46 @@ export function airDrag(b,dt){
 }
 export function advance(b,tilt,dt,options={}){
   const layout=layoutFor(b.material),goal=layout.goal;
-  const walls=options.walls??layout.walls,holes=options.holes??layout.holes;
+  const openEdges=options.openEdges??b.openEdges;
+  const walls=options.walls??(openEdges?layout.walls.slice(4):layout.walls),holes=options.holes??layout.holes;
+  const field=options.terrain===false?flatTerrain:options.terrain??layout.terrain,finiteFloor=options.bounds!==false;
   const p=options.floorProfile??CONTACTS[b.material][b.surface],wallProfile=options.wallProfile??WALL_CONTACTS[b.material][b.wallMaterial];
   const rimProfile=options.rimProfile??CONTACTS[b.material].wood;
-  const granular=options.granular===false?null:b.surface==='sand'?granularState(b):null;
-  const g=gravity(tilt),normal=-g.z*b.m;
+  const g=gravity(tilt);
   let remaining=dt;
   while(remaining>1e-12){
     // Adaptive displacement bound, with no artificial speed limit.
     const speed=Math.hypot(b.vx,b.vy,b.vz);
     const h=Math.min(remaining,1/960,b.r*.2/(speed+G*remaining+1e-9));remaining-=h;b.time+=h;
-    const onFloor=b.z<=b.r+2e-6&&Math.abs(b.vz)<.02&&openingAt(b.x,b.y,holes)<0;
+    const support=supportAt(b,field),n=support.n,gn=g.x*n.x+g.y*n.y+g.z*n.z;
+    const load=normalAcceleration(b,support,g),vn=b.vx*n.x+b.vy*n.y+b.vz*n.z;
+    const inside=!finiteFloor||(b.x>=0&&b.x<=layout.width&&b.y>=0&&b.y<=layout.height);
+    const onFloor=inside&&support.gap<=2e-6&&Math.abs(vn)<.02&&openingAt(b.x,b.y,holes)<0&&load>0;
+    const normal=onFloor?load*b.m:0;b.normalLoad=normal;b.groundHeight=support.h;
+    const granular=options.granular===false?null:b.surface==='sand'?granularState(b,normal/(b.m*G)):null;
     const resistanceRatio=(p.b0+(granular?.rollingArm??0))/b.r+(granular?.ploughCoefficient??0);
-    const nearRest=Math.hypot(b.vx,b.vy)<2e-5&&Math.hypot(b.wx,b.wy)*b.r<2e-5;
-    const held=onFloor&&nearRest&&Math.hypot(g.x,g.y)<=(-g.z)*resistanceRatio;
-    if(held){b.vx=0;b.vy=0;b.wx=0;b.wy=0;}
-    else {b.vx+=g.x*h;b.vy+=g.y*h;}
-    b.vz+=g.z*h;
+    const nearRest=Math.hypot(b.vx,b.vy,b.vz)<2e-5&&Math.hypot(b.wx,b.wy,b.wz)*b.r<2e-5;
+    const held=onFloor&&nearRest&&Math.hypot(g.x-gn*n.x,g.y-gn*n.y,g.z-gn*n.z)<=load*Math.min(resistanceRatio,p.muStatic);
+    if(held){b.vx=gn*n.x*h;b.vy=gn*n.y*h;b.vz=gn*n.z*h;b.wx=b.wy=b.wz=0;}
+    else {b.vx+=g.x*h;b.vy+=g.y*h;b.vz+=g.z*h;}
     if(options.air!==false)airDrag(b,h);
-    if(onFloor)rollingLoss(b,normal,h,p,granular);
+    if(onFloor)rollingLoss(b,normal,h,p,granular,n);
     b.x+=b.vx*h;b.y+=b.vy*h;b.z+=b.vz*h;
     for(let i=0;i<3;i++){
       for(const wall of walls)resolveWall(b,wall,wallProfile,options.onContact);
-      const supported=floorContact(b,holes,p,rimProfile,options.onContact);
+      const supported=floorContact(b,holes,p,rimProfile,options.onContact,field,layout,finiteFloor);
       if(i===2)b.grounded=supported;
     }
     rotate(b,h);
     const opening=openingAt(b.x,b.y,holes);
     if(opening>=0){b.overHole=opening;if(b.z<-b.r)return{type:'fall',hole:opening};}
     else if(b.overHole!==null){b.skipped++;b.overHole=null;}
-    const u=contactVelocity(b,{x:0,y:0,z:1});b.slip=Math.hypot(u.x,u.y);
+    const finalSupport=supportAt(b,field);b.supportGap=finalSupport.gap;b.groundHeight=finalSupport.h;
+    const sn=finalSupport.n,u=contactVelocity(b,sn),un=u.x*sn.x+u.y*sn.y+u.z*sn.z;b.slip=Math.hypot(u.x-un*sn.x,u.y-un*sn.y,u.z-un*sn.z);
     b.regime=b.grounded?(Math.hypot(b.vx,b.vy)<2e-5&&Math.hypot(b.wx,b.wy)*b.r<2e-5?'rest':b.slip>.002?'sliding':'rolling'):'airborne';
-    if(options.goal!==false&&b.grounded&&Math.hypot(b.x-goal.x,b.y-goal.y)<goal.r-b.r&&Math.hypot(b.vx,b.vy)<.08)return{type:'win'};
-    if(b.x<-b.r||b.x>layout.width+b.r||b.y<-b.r||b.y>layout.height+b.r){if(options.bounds!==false)return{type:'escape'};}
+    const inGoal=options.goal!==false&&b.grounded&&Math.hypot(b.x-goal.x,b.y-goal.y)<goal.r-b.r&&Math.hypot(b.vx,b.vy,b.vz)<.08;
+    b.dwell=inGoal?b.dwell+h:0;if(b.dwell+1e-10>=GOAL_DWELL)return{type:'win'};
+    if(b.x<-b.r||b.x>layout.width+b.r||b.y<-b.r||b.y>layout.height+b.r||((b.x<0||b.x>layout.width||b.y<0||b.y>layout.height)&&b.z<-b.r)){if(options.bounds!==false)return{type:'escape'};}
   }
   return null;
 }
