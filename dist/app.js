@@ -1,7 +1,13 @@
-import { W, H, R, START, GOAL, WALLS, HOLES, BALLS, SURFACES, WALL_MATERIALS, layoutFor, STEP, MAX_TILT, clamp, tiltVector, filtered, newBall, advance, FixedClock, kineticEnergy, granularState } from './physics.js';
+import { BALLS, SURFACES, WALL_MATERIALS, layoutFor, STEP, MAX_TILT, clamp, tiltVector, filtered, newBall, advance, FixedClock, kineticEnergy, granularState } from './physics.js';
+
+import {Renderer} from './render.js';
+import {watchViewport} from './viewport.js';
+import {SoundEngine} from './sound.js';
 
 const $ = id => document.getElementById(id);
-const canvas = $('board'), ctx = canvas.getContext('2d');
+const canvas = $('board'),renderer=new Renderer(canvas,$('boardWrap'));
+const sound=new SoundEngine(text=>$('soundStatus').textContent=text);
+watchViewport(document.documentElement,()=>renderer.resize());
 const trace = $('trace'), tc = trace.getContext('2d');
 let material = 'steel', surface = 'wood', wallMaterial = 'wood', ball = newBall(), phase = 'ready', mode = 'touch';
 const tau = 0.015, RESTART_MS = 800;
@@ -9,7 +15,7 @@ let elapsed = 0, falls = 0, neutral = null, latest = null, requested = false, pe
 let raw = { x: 0, y: 0 }, smooth = { x: 0, y: 0 }, touch = { x: 0, y: 0 };
 let frameLast = null, eventLast = null, frameDt = 0, eventDt = 0, delivery = 0, lastUI = 0;
 let orientation = screenAngle(), fallStarted = 0, fallHole = null, pointer = null, calibrationSamples = null;
-let gyroFields = 'Not observed', recentDts = [], trail = [], rows = [], graph = [], recordStart = performance.now();
+let gyroFields = 'Not observed', recentDts = [], rows = [], graph = [], recordStart = performance.now();
 const keys = new Set(), clock = new FixedClock();
 const clockText = t => `${String(Math.floor(t / 60)).padStart(2,'0')}:${(t % 60).toFixed(1).padStart(4,'0')}`;
 function screenAngle() { return Number(screen.orientation?.angle ?? window.orientation ?? 0); }
@@ -20,6 +26,12 @@ function record(type, now, eventTime = '') {
 function message(title, subtitle) { $('boardTitle').textContent = title; $('boardSubtitle').textContent = subtitle; $('boardMessage').hidden = !title; }
 function status(text) { $('inputStatus').textContent = text; }
 function updateControls() {
+  const playing=phase==='running'||phase==='falling';
+  document.body.dataset.playing=String(playing);document.body.dataset.input=mode;
+  for(const h of document.querySelectorAll('.hud')){h.inert=playing;h.setAttribute('aria-hidden',String(playing));}
+  $('pauseButton').hidden=!playing;
+  $('touchControls').inert=!(playing&&mode==='touch');
+  $('touchControls').setAttribute('aria-hidden',String(!(playing&&mode==='touch')));
   $('touchButton').classList.toggle('selected', mode === 'touch'); $('touchButton').setAttribute('aria-pressed', mode === 'touch');
   $('tiltButton').classList.toggle('selected', mode === 'tilt'); $('tiltButton').setAttribute('aria-pressed', mode === 'tilt');
   $('tiltButton').textContent = mode === 'tilt' ? 'Tilt enabled' : 'Enable tilt';
@@ -43,25 +55,26 @@ function updateControls() {
 function stopInput() { keys.clear(); touch = { x:0, y:0 }; pointer = null; }
 function pause(reason = 'Your move, when you’re ready.') {
   if (phase === 'running') { phase = 'paused'; message('Take a breath.', reason); }
-  if (phase === 'falling') { ball = newBall(material,surface,wallMaterial); trail = []; phase = 'paused'; fallHole = null; message('Ready to try again?', reason); }
-  stopInput(); clock.reset(); updateControls();
+  if (phase === 'falling') { ball = newBall(material,surface,wallMaterial); phase = 'paused'; fallHole = null; message('Ready to try again?', reason); }
+  stopInput(); sound.pause(); clock.reset(); updateControls();
 }
 function restart() {
-  ball = newBall(material,surface,wallMaterial); elapsed = 0; falls = 0; trail = []; phase = 'ready'; fallHole = null; clock.reset();
+  sound.pause();renderer.clearMarks();
+  ball = newBall(material,surface,wallMaterial); elapsed = 0; falls = 0; phase = 'ready'; fallHole = null; clock.reset();
   smooth = { x:0, y:0 }; stopInput(); message('Find your balance.', 'Reach the green ring. Counter-tilt to brake.'); updateControls();
 }
 function togglePlay() {
   if (phase === 'running') return pause();
   if (phase === 'falling' || (mode === 'tilt' && !neutral)) return;
   if (phase === 'won') restart();
-  phase = 'running'; message('', ''); clock.reset(); updateControls();
+  phase = 'running'; message('', ''); clock.reset(); updateControls();$('pauseButton').focus({preventScroll:true});
 }
 function setTouch(text = 'Drag the pad to accelerate. Release to coast.') {
   pause('Control changed. Press Resume when ready.'); mode = 'touch'; raw = {x:0,y:0}; smooth = {x:0,y:0}; status(text); updateControls();
 }
 function onOrientation(event) {
   if (!requested || !Number.isFinite(event.beta) || !Number.isFinite(event.gamma)) return;
-  const now = performance.now();
+  const now = performance.now(),firstReading=!latest;
   let stamp = event.timeStamp > 1e12 ? event.timeStamp - performance.timeOrigin : event.timeStamp;
   if (!Number.isFinite(stamp) || stamp <= 0 || stamp > now + 1000) stamp = now;
   latest = { beta:event.beta, gamma:event.gamma, received:now, stamp };
@@ -70,8 +83,10 @@ function onOrientation(event) {
   if (mode === 'tilt' && neutral) raw = tiltVector(latest.beta, latest.gamma, neutral, orientation);
   if (calibrationSamples) calibrationSamples.push({beta:event.beta,gamma:event.gamma});
   record('orientation',now,stamp);
-  if (mode === 'tilt' && !neutral && !calibrationSamples) status('Hold a comfortable angle, then tap Calibrate.');
-  updateControls();
+  if(firstReading){
+    if(mode==='tilt'&&!neutral&&!calibrationSamples)status('Hold a comfortable angle, then tap Calibrate.');
+    updateControls();
+  }
 }
 window.addEventListener('deviceorientation', onOrientation);
 window.addEventListener('devicemotion', e => {
@@ -80,6 +95,7 @@ window.addEventListener('devicemotion', e => {
   gyroFields = r && [r.alpha,r.beta,r.gamma].some(Number.isFinite) ? 'Rotation-rate values available' : 'No rotation-rate values';
 });
 async function enableTilt() {
+  sound.unlock();
   if (mode === 'tilt') return;
   if (!window.isSecureContext) return setTouch('Tilt needs a secure page. Touch controls are ready.');
   if (!('DeviceOrientationEvent' in window) && !('ondeviceorientation' in window)) return setTouch('No motion support found. Touch controls are ready.');
@@ -89,6 +105,8 @@ async function enableTilt() {
   try {
     required = typeof window.DeviceOrientationEvent?.requestPermission === 'function' ? window.DeviceOrientationEvent.requestPermission() : Promise.resolve('granted');
     optional = typeof window.DeviceMotionEvent?.requestPermission === 'function' ? window.DeviceMotionEvent.requestPermission().catch(()=>'unavailable') : Promise.resolve('not requested');
+    // Fullscreen is activation-consuming: invoke after audio/permission calls, before awaiting.
+    if(/Android/i.test(navigator.userAgent)&&!isStandalone())requestFullScreen(false);
     const [result] = await Promise.all([required, optional]);
     permission = result;
     if (result !== 'granted') return setTouch('Tilt access was declined. Use touch, or change motion access in your browser’s site settings.');
@@ -125,7 +143,7 @@ function orientationChanged() {
 }
 screen.orientation?.addEventListener('change', orientationChanged);
 window.addEventListener('orientationchange', orientationChanged);
-document.addEventListener('visibilitychange', () => { if (document.hidden) { calibrationSamples=null; pause('Press Resume when you return.'); } frameLast=null;clock.reset(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { calibrationSamples=null; pause('Press Resume when you return.');sound.hide(); } frameLast=null;clock.reset(); });
 window.addEventListener('blur', () => pause('Press Resume when you’re ready.'));
 
 const pad = $('pad');
@@ -144,11 +162,12 @@ for(const name of ['pointerup','pointercancel','lostpointercapture'])pad.addEven
 window.addEventListener('keydown',e=>{
   if($('settings').open||$('diagnostics').open||/INPUT|SELECT|TEXTAREA|SUMMARY/.test(e.target.tagName))return;
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d'].includes(e.key)){e.preventDefault();if(mode==='touch')keys.add(e.key);}
-  if(e.code==='Space'&&e.target.tagName!=='BUTTON'){e.preventDefault();if(!e.repeat)togglePlay();}
+  if(e.code==='Space'&&e.target.tagName!=='BUTTON'){e.preventDefault();if(!e.repeat){sound.unlock();togglePlay();}}
 });
 window.addEventListener('keyup',e=>keys.delete(e.key));
-document.addEventListener('touchmove',e=>{if(!e.target.closest('dialog'))e.preventDefault();},{passive:false});
-$('play').addEventListener('click',togglePlay);$('restart').addEventListener('click',restart);
+document.addEventListener('touchmove',e=>{if(!e.target.closest('dialog, .controls'))e.preventDefault();},{passive:false});
+$('pauseButton').addEventListener('click',()=>{pause();$('play').focus({preventScroll:true});});
+$('play').addEventListener('click',()=>{sound.unlock();togglePlay();});$('restart').addEventListener('click',restart);
 $('touchButton').addEventListener('click',()=>setTouch());$('tiltButton').addEventListener('click',enableTilt);$('calibrate').addEventListener('click',calibrate);
 for(const name of ['settings','diagnostics']) {
   $(name==='settings'?'settingsButton':'debugButton').addEventListener('click',()=>{pause();$(name).showModal();});
@@ -158,94 +177,36 @@ for(const name of ['settings','diagnostics']) {
 $('ballMaterial').addEventListener('change',e=>{material=e.target.value;restart();});
 $('floorMaterial').addEventListener('change',e=>{surface=e.target.value;restart();});
 $('wallMaterial').addEventListener('change',e=>{wallMaterial=e.target.value;restart();});
-async function fullscreen() {
-  try {
-    if(document.fullscreenElement){await document.exitFullscreen();return;}
-    if(!document.documentElement.requestFullscreen)throw new Error('unavailable');
-    await document.documentElement.requestFullscreen();
-    try { await screen.orientation?.lock?.(Math.abs(screenAngle())%180===90?'landscape':'portrait');$('screenStatus').textContent='Screen orientation locked during full screen.'; }
-    catch { $('screenStatus').textContent='Orientation lock unavailable. Axes remap when the screen rotates.'; }
-  } catch { $('screenStatus').textContent='Full screen is unavailable here. Axes remap when the screen rotates.'; status('Full screen is unavailable in this browser. You can keep playing here.'); }
+function isStandalone(){return window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;}
+function updateInstallHint(){
+  const ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  $('installHint').hidden=isStandalone();
+  $('installHint').textContent=ios?'Largest view on iPhone: Safari → Share → Add to Home Screen.':'For edge-to-edge play, add to Home Screen or use Full screen.';
+  $('installInstructions').textContent=ios?'In Safari, tap Share → Add to Home Screen. Keep “Open as Web App” enabled if offered, then launch the icon. Sign in again if asked.':'Use your browser’s Install / Add to Home Screen menu for standalone play, or choose Full screen. An internet connection and sign-in may still be needed.';
 }
+async function requestFullScreen(toggle=true){
+  try{
+    if(document.fullscreenElement){if(toggle)await document.exitFullscreen();return;}
+    if(!document.documentElement.requestFullscreen)throw new Error('unavailable');
+    await document.documentElement.requestFullscreen({navigationUI:'hide'});
+    try{if(typeof screen.orientation?.lock!=='function')throw new Error('unavailable');await screen.orientation.lock('portrait');$('screenStatus').textContent='Portrait requested for full-screen play.';}
+    catch{$('screenStatus').textContent='Orientation lock unavailable. Axes still remap after rotation.';}
+  }catch{$('screenStatus').textContent='Full screen is unavailable here. On iPhone, use Add to Home Screen.';}
+}
+function fullscreen(){sound.unlock();requestFullScreen();}
 $('fullscreen').addEventListener('click',fullscreen);$('settingsFullscreen').addEventListener('click',fullscreen);
+$('soundEnabled').addEventListener('change',e=>{sound.setEnabled(e.target.checked);$('soundStatus').textContent=e.target.checked?'Sound enabled. Your device controls silent mode.':'Sound off.';});
+$('hapticsEnabled').disabled=typeof navigator.vibrate!=='function';
+$('hapticsStatus').textContent=typeof navigator.vibrate==='function'?'Optional short vibrations on wall hits. Your browser may suppress them.':'This browser does not expose vibration; wall haptics are unavailable.';
+$('hapticsEnabled').addEventListener('change',e=>{sound.haptics=e.target.checked;if(!sound.haptics)navigator.vibrate?.(0);});
+window.matchMedia('(display-mode: standalone)').addEventListener('change',updateInstallHint);updateInstallHint();
 $('clearLog').addEventListener('click',()=>{rows=[];graph=[];recordStart=performance.now();});
 $('exportLog').addEventListener('click',()=>{
-  const meta=[`# Marble Lab; model=3; tau_ms=${tau*1000}; fixed_step_s=${STEP}`,`# neutral_beta=${neutral?.beta??''}; neutral_gamma=${neutral?.gamma??''}; browser=${navigator.userAgent}`, '# JS timestamps are not end-to-end sensor latency; ball variables are simulated SI values.'];
+  const meta=[`# Marble Lab; model=4; tau_ms=${tau*1000}; fixed_step_s=${STEP}`,`# neutral_beta=${neutral?.beta??''}; neutral_gamma=${neutral?.gamma??''}; browser=${navigator.userAgent}`, '# JS timestamps are not end-to-end sensor latency; ball variables are simulated SI values.'];
   const csv=[...meta,'kind,received_or_frame_ms,event_timestamp_ms,raw_x_deg,raw_y_deg,filtered_x_deg,filtered_y_deg,state,input,screen_angle_deg,ball_material,surface,wall_material,x_m,y_m,z_m,vx_m_s,vy_m_s,vz_m_s,omega_x_rad_s,omega_y_rad_s,omega_z_rad_s,kinetic_energy_J,slip_m_s,contact_regime',...rows.map(r=>r.join(','))].join('\n');
   const url=URL.createObjectURL(new Blob([csv],{type:'text/csv'})),a=document.createElement('a');a.href=url;a.download='marble-lab-timing.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 });
 
-// The canvas is the functional game geometry. All coordinates below are metres.
-function rounded(x,y,w,h,r,fill,stroke) {ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=.0007;ctx.stroke();}}
-function circle(x,y,r,fill) {ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=fill;ctx.fill();}
-function draw(now) {
-  const scale=layoutFor(material).scale;
-  const rect=canvas.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,2);
-  const cw=Math.max(1,Math.round(rect.width*dpr)),ch=Math.max(1,Math.round(rect.height*dpr));
-  if(canvas.width!==cw||canvas.height!==ch){canvas.width=cw;canvas.height=ch;}
-  ctx.setTransform(cw/W,0,0,ch/H,0,0);ctx.clearRect(0,0,W,H);
-  const board=ctx.createLinearGradient(0,0,W,H);
-  const palette={wood:['#dfbd85','#b98c52'],sand:['#ead7a7','#c1a56e'],ice:['#d9f4fa','#72b6d0'],baize:['#187763','#064a41']}[surface];
-  board.addColorStop(0,palette[0]);board.addColorStop(1,palette[1]);
-  ctx.fillStyle=board;ctx.fillRect(0,0,W,H);
-  if(surface==='sand'){
-    // Stable terrain marks identify the granular surface; no random forces.
-    for(let i=1;i<=500;i++){const x=((i*137.508)%997)/997*W,y=((i*283.731)%991)/991*H;ctx.fillStyle=i%2?'#8c775544':'#fff3d755';ctx.fillRect(x,y,.00045,.00045);}
-  }
-  if(surface==='wood'){
-    ctx.lineWidth=.0003;ctx.strokeStyle='#70502d18';
-    for(let i=0;i<26;i++){const x=i*.013;ctx.beginPath();ctx.moveTo(x,0);ctx.bezierCurveTo(x+.004,.12,x-.003,.24,x+.003,H);ctx.stroke();}
-  }
-  if(surface==='ice'){
-    ctx.lineWidth=.0007;ctx.strokeStyle='#ffffff4d';
-    for(let i=0;i<13;i++){const x=(i*.073)%W,y=(i*.109)%H;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+.031,y+.020);ctx.lineTo(x+.023,y+.041);ctx.moveTo(x+.031,y+.020);ctx.lineTo(x+.051,y+.019);ctx.stroke();}
-    const gleam=ctx.createLinearGradient(0,H,W,0);gleam.addColorStop(0,'#ffffff00');gleam.addColorStop(.45,'#ffffff00');gleam.addColorStop(.52,'#ffffff44');gleam.addColorStop(.61,'#ffffff00');ctx.fillStyle=gleam;ctx.fillRect(0,0,W,H);
-  }
-  if(surface==='baize'){
-    ctx.lineWidth=.00025;ctx.strokeStyle='#bdffe014';
-    for(let y=0;y<H;y+=.002){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y-.015);ctx.stroke();}
-    ctx.strokeStyle='#003b321a';for(let x=0;x<W;x+=.002){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x+.03,H);ctx.stroke();}
-  }
-  // Fine ruler marks at the perimeter provide a quiet, instrument-like scale.
-  ctx.strokeStyle='#6a4b2929';ctx.lineWidth=.0005;
-  for(let x=.02;x<W-.01;x+=.01){ctx.beginPath();ctx.moveTo(x,.011);ctx.lineTo(x,.013);ctx.stroke();}
-  ctx.setLineDash([.001,.003]);ctx.strokeStyle='#714e3525';ctx.lineWidth=.0007;
-  for(const y of [.046,.137,.223,.312]){ctx.beginPath();ctx.moveTo(.022,y);ctx.lineTo(.28,y);ctx.stroke();}ctx.setLineDash([]);
-  ctx.font='500 .0065px system-ui';ctx.fillStyle=surface==='baize'?'#d2e4bc':surface==='ice'?'#245776':'#705334';ctx.textAlign='left';ctx.fillText('START',.023,.025);
-  ctx.strokeStyle='#70533488';ctx.lineWidth=.0008;ctx.beginPath();ctx.arc(START.x,START.y,R+.004,0,Math.PI*2);ctx.stroke();
-  for(const hole of HOLES){circle(hole.x,hole.y+.0008,hole.r+.002,'#ead0a066');circle(hole.x,hole.y,hole.r+.001,'#82572e');const grad=ctx.createRadialGradient(hole.x-.004,hole.y-.005,.002,hole.x,hole.y,hole.r);grad.addColorStop(0,'#080e0b');grad.addColorStop(.65,'#182019');grad.addColorStop(1,'#49351f');circle(hole.x,hole.y,hole.r,grad);}
-  circle(GOAL.x,GOAL.y,GOAL.r,surface==='baize'?'#ad8348':'#507159');ctx.lineWidth=.0015;ctx.strokeStyle='#c6e6b7';ctx.beginPath();ctx.arc(GOAL.x,GOAL.y,GOAL.r-.003,0,Math.PI*2);ctx.stroke();
-  ctx.fillStyle='#e0edd2';ctx.font='600 .0055px system-ui';ctx.textAlign='center';ctx.fillText('HOME',GOAL.x,GOAL.y+.002);
-  for(const w of WALLS){const rubber=wallMaterial==='rubber';rounded(w.x+.001,w.y+.0025,w.w,w.h,.0015,'#12272366');rounded(w.x,w.y,w.w,w.h,rubber?.0025:.0013,rubber?'#a94237':'#906d40',rubber?'#ed9079':'#b69560');ctx.fillStyle=rubber?'#ffbf9c66':'#efd3a288';ctx.fillRect(w.x+.001,w.y,w.w-.002,.0008);if(rubber){ctx.strokeStyle='#6c2929';ctx.lineWidth=.0005;ctx.strokeRect(w.x+.0015,w.y+.0015,w.w-.003,w.h-.003);}}
-  if(trail.length>1){ctx.beginPath();ctx.moveTo(trail[0].x,trail[0].y);for(const t of trail)ctx.lineTo(t.x,t.y);ctx.strokeStyle='#f8edca24';ctx.lineWidth=.0017;ctx.stroke();}
-  let bx=ball.x/scale,by=ball.y/scale,r=ball.r/scale,opacity=1;
-  if(phase==='falling'){const t=clamp((now-fallStarted)/RESTART_MS,0,1);if(fallHole!==null){const h=HOLES[fallHole];bx+=(h.x-bx)*t;by+=(h.y-by)*t;}r*=1-.85*t;opacity=1-t;}
-  const lift=Math.max(0,ball.z-ball.r)/scale;
-  ctx.globalAlpha=opacity*Math.exp(-lift/.035);circle(bx+.0015+lift*.32,by+.0022+lift*.4,r*1.06+lift*.12,'#2d221b66');
-  // Hide a submerged ball progressively inside the actual aperture.
-  ctx.save();if(ball.overHole!==null){const h=HOLES[ball.overHole];ctx.beginPath();ctx.arc(h.x,h.y,h.r,0,Math.PI*2);if(ball.z<0)ctx.clip();}
-  ctx.globalAlpha=opacity*(ball.z<0?clamp(1+ball.z/ball.r,.05,1):1);
-  const shine=ctx.createRadialGradient(bx-r*.36,by-r*.42,r*.06,bx,by,r);
-  if(material==='steel'){shine.addColorStop(0,'#ffffff');shine.addColorStop(.22,'#e4eae7');shine.addColorStop(.48,'#9aa9a5');shine.addColorStop(.69,'#4d5e58');shine.addColorStop(.85,'#b8c4bf');shine.addColorStop(1,'#45584f');}
-  else{const colors={rubber:['#b2caff','#6593ee','#264a94'],pingpong:['#ffffff','#f6f2e5','#b8b6af'],cork:['#e6c094','#bd8650','#795430'],billiard:['#ffffff','#f1e6c9','#9d926f']}[material];shine.addColorStop(0,colors[0]);shine.addColorStop(.4,colors[1]);shine.addColorStop(1,colors[2]);}
-  circle(bx,by,r,shine);
-  const [qw,qx,qy,qz]=ball.q;
-  const marks=material==='cork'?Array.from({length:52},(_,i)=>{const z=1-2*(i+.5)/52,a=i*2.39996323,t=Math.sqrt(1-z*z);return [t*Math.cos(a),t*Math.sin(a),z];}):[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
-  for(const v of marks){
-    const tx=2*(qy*v[2]-qz*v[1]),ty=2*(qz*v[0]-qx*v[2]),tz=2*(qx*v[1]-qy*v[0]);
-    const x=v[0]+qw*tx+qy*tz-qz*ty,y=v[1]+qw*ty+qz*tx-qx*tz,z=v[2]+qw*tz+qx*ty-qy*tx;
-    if(z>.1){const marker={steel:['#24352c99',.075],rubber:['#e8eddf',.15],pingpong:['#b75524',.12],cork:['#67402799',.065],billiard:['#ae252c',.16]}[material];circle(bx+x*r*.89,by+y*r*.89,r*marker[1]*Math.sqrt(z),marker[0]);}
-  }
-  if(material==='pingpong'){
-    ctx.strokeStyle='#acaaa266';ctx.lineWidth=r*.035;ctx.beginPath();let active=false;
-    for(let i=0;i<=80;i++){
-      const a=i*Math.PI/40,v=[Math.cos(a),Math.sin(a),0],tx=-2*qz*v[1],ty=2*qz*v[0],tz=2*(qx*v[1]-qy*v[0]);
-      const x=v[0]+qw*tx+qy*tz-qz*ty,y=v[1]+qw*ty+qz*tx-qx*tz,z=qw*tz+qx*ty-qy*tx;
-      if(z>=0){if(active)ctx.lineTo(bx+x*r,by+y*r);else ctx.moveTo(bx+x*r,by+y*r);active=true;}else active=false;
-    }ctx.stroke();
-  }
-  ctx.restore();ctx.globalAlpha=1;
-}
 function updateRaw() {
   if(mode==='tilt') { if(latest&&neutral)raw=tiltVector(latest.beta,latest.gamma,neutral,orientation);else raw={x:0,y:0}; }
   else {
@@ -263,7 +224,7 @@ function diagnostics(now) {
     for(const v of graph){const x=width*(1-(now-v.t)/5000);if(x<0)continue;const y=height/2-clamp(v[key],-35,35)*height/70;if(first){tc.moveTo(x,y);first=false;}else tc.lineTo(x,y);}tc.stroke();
   }tc.setLineDash([]);
   const avg=recentDts.length?recentDts.reduce((a,b)=>a+b,0)/recentDts.length:0;
-  const values=[['Input', mode],['Permission',permission],['Neutral β / γ',neutral?`${neutral.beta.toFixed(1)}° / ${neutral.gamma.toFixed(1)}°`:'Not calibrated'],['Screen rotation',orientation+'°'],['Orientation event rate',avg?(1000/avg).toFixed(1)+' Hz*':'No readings'],['Latest event interval',eventDt?eventDt.toFixed(1)+' ms':'—'],['Event delivery delay',latest?delivery.toFixed(1)+' ms':'—'],['Latest event → frame',latest?Math.max(0,now-latest.stamp).toFixed(1)+' ms':'—'],['Frame interval',frameDt.toFixed(1)+' ms'],['Filter time constant',(tau*1000)+' ms'],['Physics step',(STEP*1000).toFixed(2)+' ms'],['Rotation-rate data',gyroFields],['Raw X / Y',`${raw.x.toFixed(2)}° / ${raw.y.toFixed(2)}°`],['Filtered X / Y',`${smooth.x.toFixed(2)}° / ${smooth.y.toFixed(2)}°`],['Ball speed',Math.hypot(ball.vx,ball.vy).toFixed(3)+' m/s'],['Captured timing records',String(rows.length)]];
+  const values=[['Input', mode],['Permission',permission],['Neutral β / γ',neutral?`${neutral.beta.toFixed(1)}° / ${neutral.gamma.toFixed(1)}°`:'Not calibrated'],['Screen rotation',orientation+'°'],['Orientation event rate',avg?(1000/avg).toFixed(1)+' Hz*':'No readings'],['Latest event interval',eventDt?eventDt.toFixed(1)+' ms':'—'],['Event delivery delay',latest?delivery.toFixed(1)+' ms':'—'],['Latest event → frame',latest?Math.max(0,now-latest.stamp).toFixed(1)+' ms':'—'],['Frame interval',frameDt.toFixed(1)+' ms'],['Filter time constant',(tau*1000)+' ms'],['Physics step',(STEP*1000).toFixed(2)+' ms'],['Canvas pixels',`${canvas.width} × ${canvas.height}`],['Pixel ratio',String(renderer.dpr)],['Cached scene builds',String(renderer.rebuilds)],['Audio',sound.ctx?.state??'Awaiting tap'],['Rotation-rate data',gyroFields],['Raw X / Y',`${raw.x.toFixed(2)}° / ${raw.y.toFixed(2)}°`],['Filtered X / Y',`${smooth.x.toFixed(2)}° / ${smooth.y.toFixed(2)}°`],['Ball speed',Math.hypot(ball.vx,ball.vy).toFixed(3)+' m/s'],['Captured timing records',String(rows.length)]];
   values.push(['Ball / surface',`${BALLS[material].name} / ${SURFACES[surface].name}`],['Mass / diameter',`${(ball.m*1000).toFixed(2)} g / ${ball.r*2000} mm`],['Walls',WALL_MATERIALS[wallMaterial].name],['Board dimensions',`${layoutFor(material).width.toFixed(3)} × ${layoutFor(material).height.toFixed(3)} m`],['Inertia / mR²',BALLS[material].inertiaRatio.toFixed(4)],['Contact regime',ball.regime],['Slip speed',(ball.slip*1000).toFixed(1)+' mm/s'],['Spin magnitude',Math.hypot(ball.wx,ball.wy,ball.wz).toFixed(1)+' rad/s'],['Height above support',((ball.z-ball.r)*1000).toFixed(2)+' mm'],['Kinetic energy',(kineticEnergy(ball)*1000).toFixed(3)+' mJ']);
   if(surface==='sand')values.push(['Estimated sinkage',(granularState(ball).sinkage*1000).toFixed(2)+' mm']);
   $('metrics').replaceChildren(...values.flatMap(([label,value])=>{const a=document.createElement('dt'),b=document.createElement('dd');a.textContent=label;b.textContent=value;return[a,b];}));
@@ -271,14 +232,15 @@ function diagnostics(now) {
 function frame(now) {
   frameDt=frameLast===null?0:Math.max(0,now-frameLast);frameLast=now;updateRaw();
   if(phase!=='running')filter(Math.min(frameDt/1000,.05));
+  const contacts=[],startSimulationTime=ball.time;
   clock.tick(now,phase==='running',dt=>{
-    filter(dt);elapsed+=dt;const event=advance(ball,smooth,dt);
-    if(event?.type==='fall'||event?.type==='escape'){phase='falling';falls++;fallHole=event.hole??null;fallStarted=now;message(event.type==='escape'?'Over the edge.':'One more try.', 'Back to the start. Keep a lighter touch.');updateControls();return false;}
-    if(event?.type==='win'){phase='won';message('Beautifully balanced.', `${clockText(elapsed)} · ${falls} ${falls===1?'fall':'falls'}`);updateControls();return false;}
+    filter(dt);elapsed+=dt;const event=advance(ball,smooth,dt,{onContact:e=>{if(contacts.length<40)contacts.push(e);}});
+    if(event?.type==='fall'||event?.type==='escape'){phase='falling';sound.capture();falls++;fallHole=event.hole??null;fallStarted=now;message(event.type==='escape'?'Over the edge.':'One more try.', 'Back to the start. Keep a lighter touch.');updateControls();return false;}
+    if(event?.type==='win'){phase='won';sound.pause();message('Beautifully balanced.', `${clockText(elapsed)} · ${falls} ${falls===1?'fall':'falls'}`);updateControls();return false;}
   });
-  if(phase==='falling'&&now-fallStarted>=RESTART_MS){ball=newBall(material,surface,wallMaterial);trail=[];fallHole=null;phase='running';clock.reset();message('','');updateControls();}
-  if(phase==='running'){trail.push({x:ball.x/layoutFor(material).scale,y:ball.y/layoutFor(material).scale});if(trail.length>28)trail.shift();}
-  draw(now);record('frame',now,latest?.stamp??'');graph.push({t:now,rx:raw.x,ry:raw.y,fx:smooth.x,fy:smooth.y});while(graph.length&&graph[0].t<now-5500)graph.shift();
+  if(phase==='falling'&&now-fallStarted>=RESTART_MS){ball=newBall(material,surface,wallMaterial);fallHole=null;phase='running';clock.reset();message('','');updateControls();}
+  if(phase==='running'||phase==='falling')sound.impacts(contacts,startSimulationTime);sound.update(ball,phase==='running');
+  renderer.draw(ball,smooth,{phase,now,fallStarted,fallHole,restartMs:RESTART_MS,running:phase==='running'});record('frame',now,latest?.stamp??'');graph.push({t:now,rx:raw.x,ry:raw.y,fx:smooth.x,fy:smooth.y});while(graph.length&&graph[0].t<now-5500)graph.shift();
   if(now-lastUI>80){lastUI=now;$('time').textContent=clockText(elapsed);$('falls').textContent=String(falls);$('tiltMagnitude').textContent=Math.min(MAX_TILT,Math.hypot(smooth.x,smooth.y)).toFixed(1);
     const radius=pad.clientWidth*.32;$('padKnob').style.transform=`translate(calc(-50% + ${clamp(smooth.x/MAX_TILT,-1,1)*radius}px),calc(-50% + ${clamp(smooth.y/MAX_TILT,-1,1)*radius}px))`;
     if($('diagnostics').open)diagnostics(now);

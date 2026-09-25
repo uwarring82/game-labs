@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {newBall,advance,STEP,MAX_TILT,CONTACTS,BALLS,SURFACES,WALL_CONTACTS,WALL_MATERIALS,layoutFor,airDrag,GOAL,FixedClock,tiltVector,filtered,gravity,kineticEnergy,contactImpulse,granularState} from '../dist/physics.js';
+import {newBall,advance,STEP,MAX_TILT,ROUTE,CONTACTS,BALLS,SURFACES,WALL_CONTACTS,WALL_MATERIALS,layoutFor,airDrag,GOAL,FixedClock,tiltVector,filtered,gravity,kineticEnergy,contactImpulse,granularState} from '../dist/physics.js';
 import {restitution,G,AIR} from '../dist/materials.js';
 const free={walls:[],holes:[],goal:false,bounds:false,air:false};
 const ideal={...CONTACTS.steel.wood,b0:0,b1:0,eRef:0,muStatic:1,muKinetic:.5};
@@ -99,7 +99,7 @@ test('a hole-rim encounter does not increase total mechanical energy',()=>{
   }
 });
 test('both ball materials traverse the actual wooden maze under acceleration control',()=>{
-  const points=[[.041,.070],[.264,.070],[.264,.116],[.035,.116],[.035,.201],[.117,.201],[.117,.235],[.264,.235],[GOAL.x,GOAL.y]];
+  const points=ROUTE;
   for(const material of ['steel','rubber']){
     const b=newBall(material);let target=0,result=null;
     for(let i=0;i<240*100;i++){
@@ -114,7 +114,7 @@ test('both ball materials traverse the actual wooden maze under acceleration con
   }
 });
 test('both ball materials can traverse the sand maze within the player tilt limit',()=>{
-  const points=[[.041,.070],[.264,.070],[.264,.116],[.035,.116],[.035,.201],[.117,.201],[.117,.235],[.264,.235],[GOAL.x,GOAL.y]];
+  const points=ROUTE;
   for(const material of ['steel','rubber']){
     const b=newBall(material,'sand'),p=CONTACTS[material].sand,s=granularState(b);let target=0,result=null;
     for(let i=0;i<240*100;i++){

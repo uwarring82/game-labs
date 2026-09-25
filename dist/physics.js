@@ -1,17 +1,9 @@
 import { G, AIR, BALLS, CONTACTS, WALL_CONTACTS, granularState, restitution } from './materials.js';
 export { BALLS, CONTACTS, WALL_CONTACTS, WALL_MATERIALS, SURFACES, granularState } from './materials.js';
-export const W=.30,H=.36,R=.0075,STEP=1/240,MAX_TILT=28;
-export const START={x:.041,y:.043};
-export const GOAL={x:.260,y:.319,r:.019};
-export const WALLS=[
-  {x:0,y:0,w:W,h:.008,height:.040},{x:0,y:H-.008,w:W,h:.008,height:.040},
-  {x:0,y:0,w:.008,h:H,height:.040},{x:W-.008,y:0,w:.008,h:H,height:.040},
-  {x:.008,y:.088,w:.205,h:.009,height:.018},
-  {x:.086,y:.174,w:.206,h:.009,height:.018},
-  {x:.008,y:.260,w:.205,h:.009,height:.018},
-  {x:.145,y:.183,w:.009,h:.025,height:.018}
-];
-export const HOLES=[{x:.164,y:.046,r:.016},{x:.244,y:.142,r:.016},{x:.060,y:.226,r:.016},{x:.173,y:.306,r:.016}];
+import {BOARD,MAZE,toMetres} from './maze.js';
+export const W=BOARD.width*BOARD.metresPerUnit,H=BOARD.height*BOARD.metresPerUnit,R=.0075,STEP=1/240,MAX_TILT=28;
+export const START=toMetres(MAZE.start),GOAL=toMetres(MAZE.goal),WALLS=MAZE.walls.map(toMetres),HOLES=MAZE.holes.map(toMetres);
+export const ROUTE=MAZE.route.map(p=>p.map(v=>v*BOARD.metresPerUnit));
 export const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 export function angleDifference(a,b){return ((a-b+540)%360)-180;}
 export function tiltVector(beta,gamma,neutral,screenAngle=0){
@@ -36,7 +28,7 @@ export function layoutFor(material='steel'){
 export function newBall(material='steel',surface='wood',wallMaterial='wood'){
   const p=BALLS[material];if(!p||!CONTACTS[material][surface]||!WALL_CONTACTS[material][wallMaterial])throw new Error('Unknown material or surface');
   const r=p.radius,m=p.mass??4/3*Math.PI*r**3*p.density;
-  return {...layoutFor(material).start,z:r,vx:0,vy:0,vz:0,wx:0,wy:0,wz:0,q:[1,0,0,0],r,m,I:p.inertiaRatio*m*r*r,density:m/(4/3*Math.PI*r**3),material,surface,wallMaterial,grounded:true,slip:0,regime:'rest',impacts:0,skipped:0,overHole:null};
+  return {...layoutFor(material).start,z:r,vx:0,vy:0,vz:0,wx:0,wy:0,wz:0,q:[1,0,0,0],time:0,r,m,I:p.inertiaRatio*m*r*r,density:m/(4/3*Math.PI*r**3),material,surface,wallMaterial,grounded:true,slip:0,regime:'rest',impacts:0,skipped:0,overHole:null};
 }
 export function kineticEnergy(b){return .5*b.m*(b.vx*b.vx+b.vy*b.vy+b.vz*b.vz)+.5*b.I*(b.wx*b.wx+b.wy*b.wy+b.wz*b.wz);}
 export function contactVelocity(b,n){
@@ -48,7 +40,7 @@ function applyImpulse(b,n,jx,jy,jz){
   const rx=-b.r*n.x,ry=-b.r*n.y,rz=-b.r*n.z;
   b.wx+=(ry*jz-rz*jy)/b.I;b.wy+=(rz*jx-rx*jz)/b.I;b.wz+=(rx*jy-ry*jx)/b.I;
 }
-export function contactImpulse(b,n,p,{bounce=true}={}){
+export function contactImpulse(b,n,p,{bounce=true,onContact,kind='wall'}={}){
   const u=contactVelocity(b,n),vn=u.x*n.x+u.y*n.y+u.z*n.z;
   if(vn>=0)return 0;
   // Suppress support-contact restitution chatter below 0.08 m/s.
@@ -63,10 +55,10 @@ export function contactImpulse(b,n,p,{bounce=true}={}){
   }
   const tScale=ut?jt/ut:0;
   applyImpulse(b,n,jn*n.x-tScale*tx,jn*n.y-tScale*ty,jn*n.z-tScale*tz);
-  if(impact)b.impacts++;
+  if(impact){b.impacts++;onContact?.({kind,impulse:jn,normalSpeed:-vn,time:b.time,x:b.x,y:b.y,z:b.z,material:b.material,surface:kind==='floor'?b.surface:kind==='rim'?'wood':b.wallMaterial,mass:b.m});}
   return jn;
 }
-export function resolveWall(b,w,p=WALL_CONTACTS[b.material][b.wallMaterial]){
+export function resolveWall(b,w,p=WALL_CONTACTS[b.material][b.wallMaterial],onContact){
   const top=w.height??.018,bottom=w.bottom??-.025;
   const closest={x:clamp(b.x,w.x,w.x+w.w),y:clamp(b.y,w.y,w.y+w.h),z:clamp(b.z,bottom,top)};
   let dx=b.x-closest.x,dy=b.y-closest.y,dz=b.z-closest.z,d=Math.hypot(dx,dy,dz),depth;
@@ -77,14 +69,14 @@ export function resolveWall(b,w,p=WALL_CONTACTS[b.material][b.wallMaterial]){
     const side=sides.reduce((a,c)=>a.d<c.d?a:c);[dx,dy,dz]=side.n;depth=b.r+side.d;
   }
   b.x+=dx*(depth+1e-9);b.y+=dy*(depth+1e-9);b.z+=dz*(depth+1e-9);
-  contactImpulse(b,{x:dx,y:dy,z:dz},p);
+  contactImpulse(b,{x:dx,y:dy,z:dz},p,{onContact,kind:'wall'});
   return true;
 }
 function openingAt(x,y,holes){return holes.findIndex(h=>Math.hypot(x-h.x,y-h.y)<h.r);}
-function floorContact(b,holes,p,rimProfile){
+function floorContact(b,holes,p,rimProfile,onContact){
   const opening=openingAt(b.x,b.y,holes);
   if(opening<0){
-    if(b.z<=b.r+1e-9){b.z=Math.max(b.r,b.z);contactImpulse(b,{x:0,y:0,z:1},p);return b.vz<.02;}
+    if(b.z<=b.r+1e-9){b.z=Math.max(b.r,b.z);contactImpulse(b,{x:0,y:0,z:1},p,{onContact,kind:'floor'});return b.vz<.02;}
     return false;
   }
   // Nearest point on an ideal rigid circular aperture. Above z=0: rim;
@@ -95,7 +87,7 @@ function floorContact(b,holes,p,rimProfile){
   if(dist<b.r){
     const n={x:-gap*dx/d/dist,y:-gap*dy/d/dist,z:dz/dist},pen=b.r-dist;
     b.x+=n.x*(pen+1e-9);b.y+=n.y*(pen+1e-9);b.z+=n.z*(pen+1e-9);
-    contactImpulse(b,n,rimProfile);
+    contactImpulse(b,n,rimProfile,{onContact,kind:'rim'});
   }
   return false;
 }
@@ -134,7 +126,7 @@ export function advance(b,tilt,dt,options={}){
   while(remaining>1e-12){
     // Adaptive displacement bound, with no artificial speed limit.
     const speed=Math.hypot(b.vx,b.vy,b.vz);
-    const h=Math.min(remaining,1/960,b.r*.2/(speed+G*remaining+1e-9));remaining-=h;
+    const h=Math.min(remaining,1/960,b.r*.2/(speed+G*remaining+1e-9));remaining-=h;b.time+=h;
     const onFloor=b.z<=b.r+2e-6&&Math.abs(b.vz)<.02&&openingAt(b.x,b.y,holes)<0;
     const resistanceRatio=(p.b0+(granular?.rollingArm??0))/b.r+(granular?.ploughCoefficient??0);
     const nearRest=Math.hypot(b.vx,b.vy)<2e-5&&Math.hypot(b.wx,b.wy)*b.r<2e-5;
@@ -146,8 +138,8 @@ export function advance(b,tilt,dt,options={}){
     if(onFloor)rollingLoss(b,normal,h,p,granular);
     b.x+=b.vx*h;b.y+=b.vy*h;b.z+=b.vz*h;
     for(let i=0;i<3;i++){
-      for(const wall of walls)resolveWall(b,wall,wallProfile);
-      const supported=floorContact(b,holes,p,rimProfile);
+      for(const wall of walls)resolveWall(b,wall,wallProfile,options.onContact);
+      const supported=floorContact(b,holes,p,rimProfile,options.onContact);
       if(i===2)b.grounded=supported;
     }
     rotate(b,h);

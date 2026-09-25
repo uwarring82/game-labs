@@ -1,4 +1,4 @@
-# Marble Lab — material model 03
+# Marble Lab — material model 04
 
 One top-down maze with phone tilt, touch steering and keyboard controls. Static HTML/CSS/JavaScript; no runtime dependencies, analytics, or sensor uploads. The Site remains private.
 
@@ -28,7 +28,7 @@ Raw/filtered tilt, browser timing and simulated contact regime, slip, spin, heig
 
 ## Verification
 
-`npm test` runs 61 checks, including full routes for all 40 combinations and shell inertia, ice slip threshold, air drag decay, billiard reference deceleration, independent walls, plus ideal 5/7 rolling acceleration for both masses, analytic sliding-to-rolling velocity, passive impacts with spin, material rebound, coast-down and sand ordering, high-speed contacts, geometric holes, energy bounds, valid maze routes, calibration/remapping, time-step independence and pauses. Syntax and local HTML/JS references are checked separately.
+`npm test` runs 67 checks, including full routes for all 40 combinations and shell inertia, ice slip threshold, air drag decay, billiard reference deceleration, independent walls, plus ideal 5/7 rolling acceleration for both masses, analytic sliding-to-rolling velocity, passive impacts with spin, material rebound, coast-down and sand ordering, high-speed contacts, geometric holes, energy bounds, valid maze routes, calibration/remapping, time-step independence and pauses. Syntax and local HTML/JS references are checked separately.
 
 No physical-phone, browser visual, or supported-context WebMCP verification was available in this build environment. The existing optional WebMCP read/control interface remains feature-detected.
 
@@ -36,7 +36,7 @@ No physical-phone, browser visual, or supported-context WebMCP verification was 
 
 Enable tilt requests motion/orientation permission directly from its tap. Denial leaves touch available. Open the HTTPS page directly in Safari / Chrome. A containing frame must delegate accelerometer / gyroscope (potentially magnetometer for an absolute-orientation fallback), with permission from its parent policy. The child cannot grant this to itself. Safari may require clearing the site data after denial.
 
-Test iPhone Safari and Android Chrome (including a low-cost device without a gyro if available): pitched neutral near 35°, chair yaw, screen rotations, a quick tilt step, slow/fast hole approaches, coast/counter-tilt braking, wall hops, changing app and resuming, page-scroll suppression. Test all four material pairs; sand intentionally needs larger tilts. Compare with physical specimens before describing the parameters as calibrated.
+Test iPhone Safari and Android Chrome (including a low-cost device without a gyro if available): pitched neutral near 35°, chair yaw, screen rotations, a quick tilt step, slow/fast hole approaches, coast/counter-tilt braking, wall hops, changing app and resuming, page-scroll suppression. Test representative combinations of all five balls, four floors and two walls; sand intentionally needs larger tilts. Compare with physical specimens before describing the parameters as calibrated.
 
 ## Material documentation
 
@@ -45,3 +45,14 @@ Test iPhone Safari and Android Chrome (including a low-cost device without a gyr
 ## Scenery
 
 The canvas uses distinct functional floor textures for wood, sand, ice and baize, corresponding surrounding colours, separate rubber bumper surfaces and material-specific ball finishes. Spin markers follow the simulated quaternion. Texture marks exert no force. Screen coordinates are normalised; all recorded positions, velocities and sizes remain physical SI quantities.
+
+## Screen, rendering and feedback (model 04)
+
+- Maze authoring uses 9 × 19 board units in `dist/maze.js`. The base physical board is now 30 × 63.3 cm and scales with ball radius. `dist/viewport.js` uniformly fits the canvas inside safe areas, listens to VisualViewport resize/scroll, and caps backing density at 2. No geometry is stretched to the viewport.
+- `dist/manifest.webmanifest` plus PNG home-screen icons request standalone portrait launch. iPhone help recommends Safari Share → Add to Home Screen and Open as Web App on iOS 26. No service worker/offline cache is added; private authentication may require another sign-in.
+- Android Enable tilt calls audio resume, available sensor permission requests and fullscreen from the same event before awaiting; fullscreen success is followed by a portrait-lock request. Each capability can fail independently. Nonessential HUD chips hide while playing. Pause remains visible, and touch retains its pad.
+- `dist/render.js` caches the base surfaces, holes, walls and shadows on a detached canvas. A separate marks canvas accumulates sand grooves and ice skids, preserving marks across viewport resizes and automatic retries; explicit restart/material changes clear it. Marks exert no forces. Tilt shading is subtle and geometry stays fixed. A single fixed light, ball quaternion marks/seam, height-dependent shadow/scale and an opaque dark rim expose state and aid contrast.
+- `dist/sound.js` generates continuous surface-dependent filtered noise from rolling speed or ice slip. Thresholded physics contact notifications supply impact impulses to material-specific synthesised hits; rim and landing events are included. Capture gets a descending tone. Audio scheduling uses the context clock, a 55 ms impact interval, six impact voices and slight detuning. These are designed timbres, not experimentally calibrated acoustics.
+- Sound defaults on; it initializes only in user control gestures. Ambient session mode is requested when exposed; no silent-mode workaround. Pause stops voices and rolling; visibility loss additionally suspends audio. Optional wall vibration is limited to one 8–20 ms pulse per 100 ms and disabled when unsupported.
+
+The extra tests verify uniform viewport fit/DPR, contact event non-interference, render execution and cache/marks lifecycle using an instrumented 2D context, Web Audio timing/lifecycle with test doubles, and base-palette contrast cues across all 20 ball/floor pairs. They do not substitute for actual pixels, listening tests or permission checks on phones. Browser preview is unavailable for this static Site in this environment.

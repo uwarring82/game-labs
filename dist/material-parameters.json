@@ -1,5 +1,5 @@
 {
-  "model": 3,
+  "model": 4,
   "units": "SI",
   "evidence": "Provisional scenario parameters. Billiard/baize muKinetic=.20 and rolling deceleration/g=.01 are pooltool reference defaults; billiard/rubber e=.98 and impact friction=.14 are borrowed from Mathavan et al., not fitted to this geometry. All other contact numbers are assumptions.",
   "air": {

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {newBall,advance,STEP,MAX_TILT,BALLS,SURFACES,CONTACTS,WALL_CONTACTS,WALL_MATERIALS,layoutFor,airDrag,kineticEnergy,contactImpulse,granularState} from '../dist/physics.js';
+import {newBall,advance,STEP,MAX_TILT,ROUTE,BALLS,SURFACES,CONTACTS,WALL_CONTACTS,WALL_MATERIALS,layoutFor,airDrag,kineticEnergy,contactImpulse,granularState} from '../dist/physics.js';
 import {G,AIR} from '../dist/materials.js';
 const free={walls:[],holes:[],goal:false,bounds:false,air:false};
 function run(b,seconds,tilt,options={}){for(let i=0;i<Math.round(seconds/STEP);i++)advance(b,tilt,STEP,{...free,...options});return b;}
@@ -48,7 +48,7 @@ test('walls are independent of the floor, while rims stay hardwood',()=>{
 });
 // A conservative controller verifies geometric traversability. It is never part
 // of the game, and does not claim equivalent human difficulty or phone testing.
-const route=[[.041,.070],[.264,.070],[.264,.116],[.035,.116],[.035,.201],[.117,.201],[.117,.235],[.264,.235],[.260,.319]];
+const route=ROUTE;
 for(const material of Object.keys(BALLS))for(const surface of Object.keys(SURFACES))for(const wallMaterial of Object.keys(WALL_MATERIALS)){
  test(`full route: ${material} / ${surface} / ${wallMaterial}`,()=>{
   const b=newBall(material,surface,wallMaterial),l=layoutFor(material),p=CONTACTS[material][surface],k=BALLS[material].inertiaRatio;
