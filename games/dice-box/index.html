@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1a1a1a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Dice Box">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<title>Dice Box</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  [hidden]{display:none!important}
+  img{max-width:100%}
+  :root{
+    --ink:#1a1a1a; --ink-2:#232323; --parchment:#f5f0e8; --stone:#6b6b6b; --stone-2:#9a9a9a;
+    --sea:#2c5f7c; --sea-2:#3c7a9c; --signal:#c0392b; --line:rgba(245,240,232,.14); --glass:rgba(245,240,232,.06);
+    --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace; --serif:'Crimson Pro',Georgia,'Times New Roman',serif;
+    color-scheme:dark;
+  }
+  html,body{height:100%;margin:0;background:var(--ink);color:var(--parchment);overflow:hidden;overscroll-behavior:none;font-family:var(--mono);font-size:13px}
+  #c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;user-select:none;-webkit-user-select:none}
+  .hud{position:fixed;left:0;right:0;display:flex;align-items:center;justify-content:space-between;gap:12px;padding-inline:16px;pointer-events:none;z-index:3}
+  .hud>*{pointer-events:auto}
+  #top{top:0;padding-top:calc(env(safe-area-inset-top,0px) + 10px)}
+  #bottom{bottom:0;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 12px);align-items:flex-end}
+  .brand{display:flex;flex-direction:column;gap:2px;line-height:1.05}
+  .brand h1{font:600 22px/1 var(--serif);margin:0;letter-spacing:.005em;color:var(--parchment)}
+  .brand span{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--stone-2)}
+  .pill{display:inline-flex;align-items:center;gap:4px;background:var(--glass);border:1px solid var(--line);border-radius:999px;padding:4px 6px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+  .pill button{min-width:30px;height:30px;padding:0 8px}
+  .pill .n{min-width:20px;text-align:center;font-variant-numeric:tabular-nums;font-weight:500}
+  button{font:500 12.5px var(--mono);letter-spacing:.04em;color:var(--parchment);background:transparent;border:1px solid transparent;border-radius:999px;padding:8px 14px;cursor:pointer;transition:background .15s,border-color .15s}
+  button:hover{background:rgba(245,240,232,.08)}
+  button:focus-visible{outline:2px solid var(--sea-2);outline-offset:2px}
+  button.primary{background:var(--sea);border-color:var(--sea-2)}
+  button.primary:hover{background:var(--sea-2)}
+  button.ghost{border-color:var(--line);background:var(--glass);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+  button.on{border-color:var(--sea-2);color:#cfe3ee}
+  .readout{display:flex;flex-direction:column;gap:3px;min-width:110px}
+  .readout .faces{font-size:18px;letter-spacing:.12em;font-variant-numeric:tabular-nums;white-space:nowrap;min-height:22px}
+  .readout .faces b{font-weight:500;color:#cfe3ee}
+  .readout .faces .q{color:var(--signal)}
+  .readout .state{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--stone-2);min-height:13px;white-space:nowrap}
+  .actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+  .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(26,26,26,.86);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);z-index:10;padding:24px 16px}
+  .card{max-width:360px;width:100%;display:flex;flex-direction:column;gap:14px;background:var(--ink-2);border:1px solid var(--line);border-radius:14px;padding:22px 20px}
+  .card h2{font:600 30px/1.05 var(--serif);margin:0;text-wrap:balance}
+  .card p{font:400 16px/1.4 var(--serif);margin:0;color:#d8d2c7}
+  .card p.small{font:400 11.5px/1.5 var(--mono);color:var(--stone-2)}
+  .card .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+  th,td{text-align:right;padding:5px 6px;border-bottom:1px solid var(--line);font-weight:400}
+  th{color:var(--stone-2);font-weight:500;letter-spacing:.06em;font-size:10.5px;text-transform:uppercase}
+  td:first-child,th:first-child{text-align:left}
+  .bar{height:6px;background:var(--glass);border-radius:3px;overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--sea-2);width:0%;transition:width .12s}
+  #debug{position:fixed;left:16px;top:calc(env(safe-area-inset-top,0px) + 62px);font-size:10.5px;line-height:1.5;color:var(--stone-2);white-space:pre;pointer-events:none;z-index:3;font-variant-numeric:tabular-nums}
+  .hint{font-size:11px;color:var(--stone-2);letter-spacing:.04em}
+  select{font:500 12.5px var(--mono);color:var(--parchment);background:var(--ink-2);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+  @media (prefers-reduced-motion:reduce){ .bar i{transition:none} }
+  @media (max-width:420px){ .brand h1{font-size:20px} .readout .faces{font-size:16px} button{padding:8px 11px} }
+</style>
+</head>
+<body>
+<canvas id="c" aria-label="Glass box with dice"></canvas>
+
+<div class="hud" id="top">
+  <div class="brand"><h1>Dice Box</h1><span>glass · felt · 16 mm dice</span></div>
+  <div class="pill" role="group" aria-label="Number of dice">
+    <button id="fewer" aria-label="Fewer dice">−</button><span class="n" id="count">5</span><button id="more" aria-label="More dice">+</button>
+  </div>
+</div>
+
+<div class="hud" id="bottom">
+  <div class="readout"><div class="faces" id="faces">…</div><div class="state" id="state">waiting</div></div>
+  <div class="actions">
+    <button class="ghost" id="shake" hidden>Shake</button>
+    <button class="ghost" id="toss" hidden>Toss</button>
+    <button class="ghost" id="fair">Fairness</button>
+    <button class="ghost on" id="sound" aria-pressed="true">Sound</button>
+    <button class="ghost" id="info" aria-pressed="false">i</button>
+  </div>
+</div>
+
+<div id="debug" hidden></div>
+
+<div class="overlay" id="start">
+  <div class="card">
+    <h2>Dice Box</h2>
+    <p>Five dice in a glass box with a felt floor. Shake the phone and the dice fly; hold it still and they settle where physics puts them.</p>
+    <p class="small" id="startHint">The box is the phone. Tilting, lifting and twisting all count.</p>
+    <div class="row"><button class="primary" id="go">Start</button><span class="hint" id="startNote"></span></div>
+  </div>
+</div>
+
+<div class="overlay" id="fairPanel" hidden>
+  <div class="card">
+    <h2>Fairness</h2>
+    <p class="small">Each throw starts with every die showing 1, shakes the box hard for 2 s (random accelerations to 50 m/s², rotations to 16 rad/s), then lets the dice settle. Faces are pooled across dice. A fair engine gives a flat count; χ² has 5 degrees of freedom. A gentle shake is not a fair throw here or on a table: dice that are only slid keep their face.</p>
+    <div class="row"><label for="nThrows" class="hint">Throws</label><select id="nThrows"><option value="40">40</option><option value="80" selected>80</option><option value="200">200</option></select><button class="primary" id="runFair">Run</button><button class="ghost" id="closeFair">Close</button></div>
+    <div class="bar"><i id="fairBar"></i></div>
+    <table id="fairTable"><thead><tr><th>Face</th><th>Count</th><th>Expected</th><th>Share</th></tr></thead><tbody id="fairBody"><tr><td colspan="4" style="text-align:left;color:var(--stone-2)">No run yet.</td></tr></tbody></table>
+    <p class="small" id="fairStats"></p>
+  </div>
+</div>
+
+<div class="overlay" id="rotate" hidden>
+  <div class="card"><h2>Turn to portrait</h2><p>The box is laid out for a phone held upright.</p><div class="row"><button class="ghost" id="rotateOk">Play anyway</button></div></div>
+</div>
+
+<script src="vendor/three.min.js"></script>
+<script src="src/phys.js"></script>
+<script src="src/app.js"></script>
+</body>
+</html>
