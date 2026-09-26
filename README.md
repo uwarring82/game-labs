@@ -8,7 +8,7 @@ Physics games for smartphones, played in the browser. The phone's sensors are th
 
 | Game | Status | Play |
 | --- | --- | --- |
-| [Marble Lab](games/marble-lab/) | Relief v0.1 with Sculpt v0.1 (reshape the board, move walls, choose the ball size): drafts, not yet endorsed. Automated checks pass; real-phone validation is pending. | [Current build](https://uwarring82.github.io/game-labs/marble-lab/latest/) · [All stages](https://uwarring82.github.io/game-labs/marble-lab/) |
+| [Marble Lab](games/marble-lab/) | Build your own course on an open board, or play and edit Saddle and Basin (Relief v0.1 with Sculpt v0.1): drafts, not yet endorsed. Automated checks pass; real-phone validation is pending. | [Current build](https://uwarring82.github.io/game-labs/marble-lab/latest/) · [All stages](https://uwarring82.github.io/game-labs/marble-lab/) |
 | [Dice Box](games/dice-box/) | v0.2: draft, not yet endorsed. Realistic dice, a loaded die, breakable glass. Engine checks pass; real-phone testing is pending. | [Current build](https://uwarring82.github.io/game-labs/dice-box/latest/) · [All stages](https://uwarring82.github.io/game-labs/dice-box/) |
 
 ## Every development stage stays playable

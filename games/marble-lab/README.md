@@ -8,9 +8,21 @@ Mobile browser game, static HTML/CSS/ES modules, no runtime dependencies or sens
 
 Enable tilt → permit motion → hold a comfortable pose → Calibrate → Play. Materials & play offers Motion: tilt only / full and a comfortable tilt limit, default 8° (4–15°). Full motion applies device linear acceleration directly. Calibration also measures the sign of the phone's gravity reading (iPhones report it reversed); if the reading matches neither sign, full motion stays off and the settings say why. A persistent play-time button switches back to tilt only. Touch and keyboard supply tilt only. No gesture, toss, shake or stuck-state detectors exist.
 
-Saddle and Basin is the sole playable level: continuous relief, drainage holes, three to five passes, a low curved wall, a walled dip, a sandy pothole, resin and a goal summit. Hold the whole ball inside the goal ring for three simulated seconds (centre within 2r). Open edges removes the outer walls and preserves the finite board drop/restart.
+The game opens on the open board: flat and empty, with only the border, a start and a goal ring. The player builds the course with Sculpt.
 
-Sculpt ends the current run and reshapes the board; Done starts a new run. Pressing digs a hollow and pushes up a low rim (Pile does the opposite); holding deepens it and dragging ploughs a furrow. Three brush sizes, Undo and Reset. Each brush tick is limited so slopes stay at or below 14.6°, crests at or below 20 m⁻¹ curvature and hollows at or below 50 m⁻¹. Edits fade out around the start, the hole rims and the goal with its surroundings, which stay as they are. With the Walls tool the low wall and the pocket wall can be dragged to a new place or turned by their round handle. The border stays, walls keep clear of the start, the holes and the goal, and a way from the start to the goal must remain for the largest ball. An edited board is labelled, is saved in the browser and has not been checked by the route bot.
+Saddle and Basin remains as a second board under Materials & play. It has continuous relief, drainage holes, three to five passes, a low curved wall, a walled dip, a sandy pothole, resin and a goal summit, and it is the only board the route bot has checked.
+
+On either board, hold the whole ball inside the goal ring for three simulated seconds (centre within goal radius minus ball radius). Open edges removes the outer walls and preserves the finite board drop/restart. Each board keeps its own edits in the browser.
+
+Sculpt ends the current run and reshapes the board; Done starts a new run. Pressing digs a hollow and pushes up a low rim (Pile does the opposite); holding deepens it and dragging ploughs a furrow. Three brush sizes, Undo and Reset. Each brush tick is limited so slopes stay at or below 14.6°, crests at or below 20 m⁻¹ curvature and hollows at or below 50 m⁻¹. On Saddle and Basin, edits fade out around the start shelf, the hole rims and the goal summit where the relief built them; the open board has no such zones.
+
+The Move tool moves every object except the border. The selected object's round handle turns and stretches a wall, or resizes a hole, patch or the goal ring. ＋ Add places low or tall walls, holes, sand and resin, and ✕ removes the selected one. ⇅ moves the toolbar to the other edge where it covers the board. The rules:
+- the start stays clear of walls, holes and patches;
+- holes are never narrower than the largest ball, and clear of the start and the goal;
+- walls stay clear of the start, the holes and the goal;
+- a way from the start to the goal must remain for the largest ball.
+
+An edited board is labelled, is saved in the browser and has not been checked by the route bot.
 
 Materials & play also sets the ball size, 0.5–1.6× the nominal diameter. The board keeps its size, so smaller balls drop into holes more often and at higher speeds. Every size stays narrower than the holes, so a ball can never get stuck in one. Solid balls keep their density; the table-tennis shell keeps its wall. Level acceptance covers the nominal sizes.
 
@@ -19,9 +31,9 @@ Materials & play also sets the ball size, 0.5–1.6× the nominal diameter. The 
 - `dist/physics.js`: the level is an input (relief or an edited copy) and each ball carries its layout; ball size relative to the board; sphere translation/spin, unilateral surface contact, finite-height polyline curtains/top rims, Coulomb grip/slip, local rolling and torsional loss, granular load, ballistic flight, hole/edge capture, goal dwell, fixed clock.
 - `dist/motion.js`: orientation-derived specific-force subtraction, screen mapping, event-time alignment, held samples, 3g vector cap, stale-sample expiry, diagnostic recording. Does not use DeviceMotionEvent.acceleration. Specific force is +g along z at face-up rest in the spec and −g on iPhone (WebKit); the sign is measured at calibration, not inferred from the browser.
 - `dist/terrain.js`: C1 bicubic Hermite field, its consistent gradient/Hessian, normal-offset sphere geometry. Older compact terrain survives only as a test fixture.
-- `dist/landscape.js`: seeded Gaussian/warped landscape, slope/crest-bounded construction, topology and gradient-flow drainage, local patches, material scaling and 0.7 s goal-curvature reference.
-- `dist/relief-config.js`: generator-selected seed; no second level selector.
-- `dist/walls.js`: movable authored walls: poses (turn about the box centre, then shift), handles and the placement rules.
+- `dist/landscape.js`: the flat open board; seeded Gaussian/warped landscape, slope/crest-bounded construction, topology and gradient-flow drainage, local patches, material scaling and 0.7 s goal-curvature reference.
+- `dist/relief-config.js`: generator-selected seed for Saddle and Basin.
+- `dist/objects.js`: the board's objects (start, goal ring, walls, holes, patches): picking, moving, turning and scaling, adding and removing, the placement rules and the start-to-goal check.
 - `dist/sculpt.js`: player edits as node deltas on the relief's Hermite grid (read by every ball's field), zero-volume clay brush, mirrored board edges, keep-out mask, per-tick projection onto the slope/crest/hollow bounds, stroke record with bit-identical replay for undo, reset and reload.
 - `dist/materials.js`: fixed scenario coefficients, 5 balls × 4 floors × 2 wall materials, and spatial resin/sand patch profiles. Steel/rubber/cork reference radius is now 5 mm; shell/billiards retain physical dimensions and enlarge the board.
 - `dist/render.js`, `viewport.js`, `sound.js`: cached floor texture and fixed-light relief/contours (redrawn only where a Sculpt edit changed them), material texture, polyline height cues, shadow on ground projection, actual spin, safe areas/DPR≤2, and contact-driven audio/haptics.
@@ -35,7 +47,14 @@ Materials & play also sets the ball size, 0.5–1.6× the nominal diameter. The 
 
 Acceptance scope is all five balls on hardwood, not every whole-board floor swap. Trials perturb initial position; they are not a phone latency/noise model or independent human trials. Bot acceleration is allowed only inside declared jump regions. It supplies acceleration waveforms, never a ball velocity or jump flag. The 0.65√s m/s carried-speed fixture is stronger than the task card's illustrative 0.4 m/s motion, for a physically sufficient finite-stop jump.
 
-`npm test` runs 126 checks. Forty legacy maze routes remain as non-playable regression fixtures for material mechanics. Relief has its own acceptance trials and tests for gravity removal, the gravity sign check (including a recorded iPhone export), sample holds, finite-stop toss, load-dependent grip, 3×3 jump table, resin, confinement, drainage and summit tuning. Sculpt has tests for brush volume and derivatives, every ball seeing the edits in its own units, the slope, crest and hollow bounds, untouched keep-outs, mirrored edges, bit-identical undo/reset/reload, stroke loading, a hollow that holds a ball, and the dirty-rectangle redraw. Walls and ball size have tests for the placement rules, collisions at the moved wall, undo/reset/reload of wall poses, mass and size scaling, the summit time at every size, and hole capture across sizes. Drawing/audio tests use API doubles, not actual pixels or listening.
+`npm test` runs 130 checks. Forty legacy maze routes remain as non-playable regression fixtures for material mechanics. Relief has its own acceptance trials and tests for gravity removal, the gravity sign check (including a recorded iPhone export), sample holds, finite-stop toss, load-dependent grip, 3×3 jump table, resin, confinement, drainage and summit tuning. Sculpt has tests for brush volume and derivatives, every ball seeing the edits in its own units, the slope, crest and hollow bounds, untouched keep-outs, mirrored edges, bit-identical undo/reset/reload, stroke loading, a hollow that holds a ball, and the dirty-rectangle redraw. Objects and ball size have tests for:
+- the open board;
+- every kind of object where it is drawn;
+- moving, turning and scaling;
+- the placement rules and the start-to-goal check;
+- undo, reset, reload and migration of saves;
+- the relief summit staying put;
+- mass and size scaling, the summit time at every size, and hole capture across sizes. Drawing/audio tests use API doubles, not actual pixels or listening.
 
 `node scripts/write-model-notes.mjs` regenerates the notes and coefficient ledger from the active code and acceptance record. Run after validation. The publish sequence also checks JavaScript syntax, DOM wiring and local asset references.
 
@@ -55,4 +74,4 @@ Acceptance scope is all five balls on hardwood, not every whole-board floor swap
 
 On each phone use Diagnostics → Clear motion → choose scenario → perform motion → Export motion JSON. Record stationary baseline, 30° tilt in 0.3 s without intended translation, in-plane pulses and upward flicks. Inspect leakage (<0.3 m/s² target), sample timing, caps and possible clipping. Play the route in tilt-only and full modes. Phone recordings stay local until exported; there is no telemetry or inferred pass result.
 
-Both phone entries in the acceptance record remain pending, with null measurements and no endorser. Browser visual inspection and real-device permission, performance, sound and motion testing were unavailable in this execution environment. No second level is exposed before those gates. An edited Saddle and Basin is a labelled variant of the one level, published before the gates with U. Warring's go-ahead of 26 September 2026.
+Both phone entries in the acceptance record remain pending, with null measurements and no endorser. Browser visual inspection and real-device permission, performance, sound and motion testing were unavailable in this execution environment. At the owner's request (26 September 2026) the game now opens on a flat, empty board that players build on. Saddle and Basin, the one authored level, is a second board. No further authored level is exposed before those gates.

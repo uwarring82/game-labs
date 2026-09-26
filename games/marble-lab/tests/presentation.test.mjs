@@ -66,24 +66,24 @@ test('a sculpt edit redraws its rectangle and keeps the cached texture; the brus
   assert.ok(Math.abs(corner.x)<1e-9&&Math.abs(corner.y)<1e-9);assert.ok(Math.abs(centre.x-.15)<1e-9&&Math.abs(centre.y-19/60)<1e-9);
  }finally{sculptor.reset();globalThis.document=oldDocument;globalThis.window=oldWindow;}
 });
-test('a moved wall redraws only its rectangle; the Walls tool draws a handle per movable wall',async()=>{
- const {Sculptor}=await import('../dist/sculpt.js'),{reliefLevel}=await import('../dist/landscape.js'),{movableWalls,handleOf,wallClearances}=await import('../dist/walls.js');
+test('a moved object redraws only its rectangle; the selection and its handle are drawn; the flat board draws',async()=>{
+ const {Sculptor}=await import('../dist/sculpt.js'),{reliefLevel,flatLevel}=await import('../dist/landscape.js'),{handleOf,withObject,transformWall,clearances}=await import('../dist/objects.js');
  const oldDocument=globalThis.document,oldWindow=globalThis.window;globalThis.document={createElement:fakeCanvas};globalThis.window={devicePixelRatio:2};
  const sculptor=new Sculptor(reliefLevel());
  try{
   const r=new Renderer(fakeCanvas(),{getBoundingClientRect:()=>({width:393,height:759})}),opts={phase:'build',now:10,fallStarted:0,fallHole:null,restartMs:800,running:false},b=newBall();
   r.draw(b,{x:0,y:0},opts);const clips=[],arcs=[];r.base.getContext('2d').rect=(...a)=>clips.push(a);r.canvas.getContext('2d').arc=(...a)=>arcs.push(a);
   const draws=r.base.getContext('2d').stats.draws;r.setLevel(sculptor.currentLevel());assert.equal(r.base.getContext('2d').stats.draws,draws);
-  const low=movableWalls(sculptor.level)[0],moved=sculptor.tryWall(low,{dx:0,dy:-.03,a:0});assert.ok(moved.ok);
+  const LOW=4,moved=sculptor.tryObjects(withObject(sculptor.objects,'wall',LOW,transformWall(sculptor.objects.walls[LOW],{dy:-.03})));assert.ok(moved.ok);
   const lines=[],base=r.base.getContext('2d');base.lineTo=(x,y)=>lines.push([x,y]);
   r.setLevel(moved.level,{x0:0,y0:.3,x1:.3,y1:.4});assert.equal(r.level,moved.level);assert.equal(clips.length,1);assert.ok(clips[0][3]<r.base.height/4);
-  // The moved wall is drawn where it now is, and the authored one is not.
-  const has=p=>lines.some(([x,y])=>x===p[0]&&y===p[1]);assert.ok(moved.level.walls[low].points.slice(1).every(has));assert.ok(!sculptor.level.walls[low].points.slice(1).some(has));
-  const level=r.level,handles=movableWalls(level).map(i=>handleOf(level.walls[i]));
+  const has=p=>lines.some(([x,y])=>x===p[0]&&y===p[1]);assert.ok(moved.level.walls[LOW].points.slice(1).every(has));assert.ok(!sculptor.level.walls[LOW].points.slice(1).some(has));
   // A resized ball has its own relief (the goal correction depends on its radius).
   const builds=r.rebuilds;r.draw(newBall('steel','wood','wood',false,{size:1.3}),{x:0,y:0},opts);assert.equal(r.rebuilds,builds+1);
-  r.draw(b,{x:0,y:0},{...opts,sculpt:{zones:wallClearances(level).map(z=>({x:z.x,y:z.y,r0:z.r})),brush:null,walls:{handles,active:level.walls[4].points,invalid:false}}});
-  assert.equal(arcs.filter(a=>a[2]===.0055).length,handles.length);assert.ok(handles.every(([x,y])=>arcs.some(a=>a[0]===x&&a[1]===y)));
+  const hole=moved.level.holes[0];r.draw(b,{x:0,y:0},{...opts,sculpt:{zones:clearances(moved.level).map(z=>({x:z.x,y:z.y,r0:z.r})),brush:null,selection:{type:'hole',object:hole,handle:handleOf('hole',hole),invalid:false}}});
+  const [hx,hy]=handleOf('hole',hole);assert.ok(arcs.some(a=>a[0]===hx&&a[1]===hy&&a[2]===.0055));assert.ok(arcs.some(a=>a[0]===hole.x&&a[1]===hole.y&&a[2]>hole.r));
+  // The open board: no relief, and the fallback contour interval keeps every number finite.
+  r.setLevel(flatLevel());r.draw(newBall('steel','wood','wood',false,{level:flatLevel()}),{x:0,y:0},opts);assert.ok(r.intervals.get(`flat/steel/${b.r}`).interval>0);
  }finally{globalThis.document=oldDocument;globalThis.window=oldWindow;}
 });
 class Param{constructor(){this.value=0;this.calls=[];}setValueAtTime(v,t){this.calls.push([v,t]);}linearRampToValueAtTime(v,t){this.calls.push([v,t]);}exponentialRampToValueAtTime(v,t){this.calls.push([v,t]);}setTargetAtTime(v,t){this.calls.push([v,t]);}cancelScheduledValues(){} }

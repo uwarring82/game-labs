@@ -62,12 +62,24 @@ Status: **draft, unendorsed**. Software evidence only.
   - resized layouts share the relief's cells and stay few;
   - moved walls redraw locally.
 - [x] With the level as an input and nominal sizes, the regenerated relief evidence is byte-identical to the same-machine baseline.
+- [x] Open board and objects:
+  - the open board is flat and empty, and every ball rests at its start;
+  - added walls, holes, sand and resin act where they are drawn;
+  - moving, turning, stretching and resizing work;
+  - the rules hold, including the start-to-goal check with holes and tall walls;
+  - object edits undo, reset and reload, and bad saves and stage-08 saves are handled;
+  - a moved goal ring leaves the relief's summit in place;
+  - sculpting reaches the whole open board, and the ball starts on sculpted ground;
+  - the renderer draws selections, moved objects and the flat board.
+- [x] With the open board, the regenerated relief evidence is still byte-identical to the same-machine baseline.
 
 | Measurement | Phone 1 | Phone 2 |
 | --- | --- | --- |
 | Board width on screen; fingertip size on the board | Pending | Pending |
 | Walls tool: grabbing a wall and its handle with a finger; drag feel | Pending | Pending |
 | Ball size: smallest and largest balls visible and controllable | Pending | Pending |
+| Move tool: grabbing small objects and handles with a finger; Add and ✕; toolbar flip | Pending | Pending |
+| Open board: build a course from empty and finish it in tilt-only and full motion | Pending | Pending |
 | Press and drag with the phone held: in-plane acceleration and tilt shift | Pending | Pending |
 | Hold-to-depth feel; brush ring and limit colour visible around the finger | Pending | Pending |
 | Brush tick time and frame intervals during a stroke; full redraw after undo | Pending | Pending |
@@ -82,4 +94,4 @@ Status: **draft, unendorsed**. Software evidence only.
 - [ ] U. Warring endorses Task Card Relief to v1.0.
 - [ ] Sculpt phone rows recorded honestly; U. Warring endorses Task Card Sculpt.
 
-No automatic endorsement, fabricated measurement or second playable level. An edited Saddle and Basin is a labelled variant of the one level.
+No automatic endorsement, fabricated measurement or second authored level. An edited Saddle and Basin and the player-built open board are labelled and unchecked.

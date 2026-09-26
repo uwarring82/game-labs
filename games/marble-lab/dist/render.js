@@ -72,7 +72,8 @@ export class Renderer{
   c.strokeStyle=surface==='baize'?'#c4d2b266':'#263e3655';c.lineWidth=.0006;c.beginPath();c.arc(start.x,start.y,R+.003,0,Math.PI*2);c.stroke();
   for(const h of holes){circle(c,h.x,h.y,h.r+.0017,'#ede0b950');circle(c,h.x,h.y,h.r+.001,'#5b472b');const g=c.createRadialGradient(h.x-.003,h.y-.004,.001,h.x,h.y,h.r);g.addColorStop(0,'#030908');g.addColorStop(.65,'#0e1915');g.addColorStop(1,'#364234');circle(c,h.x,h.y,h.r,g);c.beginPath();c.arc(h.x,h.y,h.r,Math.PI*.08,Math.PI*.85);c.strokeStyle='#e7d7a36b';c.lineWidth=.0008;c.stroke();}
   circle(c,goal.x,goal.y,goal.r,surface==='baize'?'#b5914f55':'#416c5055');c.strokeStyle='#dcebc0';c.lineWidth=.0012;c.beginPath();c.arc(goal.x,goal.y,goal.r-.003,0,Math.PI*2);c.stroke();c.font='600 .005px system-ui';c.fillStyle='#f2f6dd';
-  for(const patch of patches){c.save();c.beginPath();c.ellipse(patch.x,patch.y,patch.rx,patch.ry,-.15,0,Math.PI*2);c.clip();c.fillStyle=patch.kind==='sand'?'#d5b877bb':'#bd6d18aa';c.fillRect(patch.x-patch.rx,patch.y-patch.ry,patch.rx*2,patch.ry*2);c.strokeStyle=patch.kind==='sand'?'#f4db9b66':'#f5c75b88';c.lineWidth=.0008;c.stroke();c.restore();}
+  // Patches are drawn exactly where patchAt applies them: axis-aligned ellipses.
+  for(const patch of patches){c.save();c.beginPath();c.ellipse(patch.x,patch.y,patch.rx,patch.ry,0,0,Math.PI*2);c.clip();c.fillStyle=patch.kind==='sand'?'#d5b877bb':'#bd6d18aa';c.fillRect(patch.x-patch.rx,patch.y-patch.ry,patch.rx*2,patch.ry*2);c.strokeStyle=patch.kind==='sand'?'#f4db9b66':'#f5c75b88';c.lineWidth=.0008;c.stroke();c.restore();}
   for(const w of openEdges?walls.filter(w=>w.kind!=='border'):walls){
    const line=(dx,dy,width,col)=>{c.beginPath();w.points.forEach(([x,y],i)=>i?c.lineTo(x+dx,y+dy):c.moveTo(x+dx,y+dy));c.lineWidth=width;c.strokeStyle=col;c.lineCap='round';c.lineJoin='round';c.stroke();};
    line(w.height*.25,w.height*.4,w.kind==='low'?.0025:.005,'#10221b66');
@@ -101,14 +102,17 @@ export class Renderer{
   for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++)this.heights[j*(ni+1)+i]=at(i,j);
   // The interval is fixed per material from the unedited relief ((hi-lo)/8), so an
   // edit changes only its own contours.
-  if(!this.intervals.has(id)){let lo=Infinity,hi=-Infinity;for(let j=0;j<=nj;j++)for(let i=0;i<=ni;i++){const h=layout.pristine.sample(Math.min(W,i*step)*scale,Math.min(H,j*step)*scale).h;lo=Math.min(lo,h);hi=Math.max(hi,h);}this.intervals.set(id,(hi-lo)/8);}
+  if(!this.intervals.has(id)){let lo=Infinity,hi=-Infinity;for(let j=0;j<=nj;j++)for(let i=0;i<=ni;i++){const h=layout.pristine.sample(Math.min(W,i*step)*scale,Math.min(H,j*step)*scale).h;lo=Math.min(lo,h);hi=Math.max(hi,h);}
+   // A perfectly flat board gets a fixed interval, offset by half, so no line sits at h = 0
+   // where untouched ground meets an edit.
+   this.intervals.set(id,hi>lo?{interval:(hi-lo)/8,offset:0}:{interval:.0025*scale,offset:.5});}
  }
  contours(c,surface,rect){
-  const step=CONTOUR_STEP,ni=Math.ceil(W/step),nj=Math.ceil(H/step),hs=this.heights,interval=this.intervals.get(this.heightsId),node=(i,j)=>hs[j*(ni+1)+i];
+  const step=CONTOUR_STEP,ni=Math.ceil(W/step),nj=Math.ceil(H/step),hs=this.heights,{interval,offset}=this.intervals.get(this.heightsId),node=(i,j)=>hs[j*(ni+1)+i];
   const i0=rect?Math.max(0,Math.floor(rect.x0/step)-1):0,i1=rect?Math.min(ni-1,Math.ceil(rect.x1/step)):ni-1,j0=rect?Math.max(0,Math.floor(rect.y0/step)-1):0,j1=rect?Math.min(nj-1,Math.ceil(rect.y1/step)):nj-1;
   let lo=Infinity,hi=-Infinity;for(let j=j0;j<=j1+1;j++)for(let i=i0;i<=i1+1;i++){lo=Math.min(lo,node(i,j));hi=Math.max(hi,node(i,j));}
   c.lineWidth=.00035;c.strokeStyle=surface==='baize'?'#e2f5d049':'#293e3b59';
-  for(let m=Math.ceil(lo/interval);m*interval<hi;m++){const level=m*interval;c.beginPath();
+  for(let m=Math.ceil(lo/interval-offset);(m+offset)*interval<hi;m++){const level=(m+offset)*interval;c.beginPath();
    for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){
     const x=i*step,y=j*step,x2=Math.min(W,x+step),y2=Math.min(H,y+step),points=[[x,y],[x2,y],[x2,y2],[x,y2]],h=[node(i,j),node(i+1,j),node(i+1,j+1),node(i,j+1)],cross=[];
     for(let k=0;k<4;k++){const n=(k+1)%4;if((h[k]<level)!==(h[n]<level)){const t=(level-h[k])/(h[n]-h[k]);cross.push([points[k][0]+t*(points[n][0]-points[k][0]),points[k][1]+t*(points[n][1]-points[k][1])]);}}
@@ -127,7 +131,7 @@ export class Renderer{
   }else{c.strokeStyle=`rgba(225,247,255,${Math.min(.28,.06+b.slip*.3)})`;c.lineWidth=rr*.16;c.beginPath();c.moveTo(last.x,last.y);c.lineTo(p.x,p.y);c.stroke();}
  }
  draw(b,tilt,{phase,now,fallStarted,fallHole,restartMs,running,sculpt}){
-  const layout=b.layout??layoutFor(b.material),id=`${b.material}/${b.r}`,key=`${b.surface}/${b.wallMaterial}/${id}/${b.openEdges}`;if(key!==this.key)this.rebuild(b.surface,b.wallMaterial,layout,b.openEdges,id,key);
+  const layout=b.layout??layoutFor(b.material),id=`${layout.seed}/${b.material}/${b.r}`,key=`${b.surface}/${b.wallMaterial}/${id}/${b.openEdges}`;if(key!==this.key)this.rebuild(b.surface,b.wallMaterial,layout,b.openEdges,id,key);
   const {goal,holes}=this.level;
   if(running)this.mark(b);else this.previous=null;
   const c=this.ctx;c.setTransform(1,0,0,1,0,0);c.globalAlpha=1;c.drawImage(this.base,0,0);c.drawImage(this.marks,0,0);this.transform(c);
@@ -158,13 +162,14 @@ export class Renderer{
  }
  // Keep-out rings (no edits inside) and the brush: solid ring at the dip radius
  // R/sqrt(5), dashed ring at the berm's outer edge R. Amber once an increment is limited.
- sculptOverlay(c,{zones,brush,walls}){
+ // In the Move tool: the selected object outlined, with its handle.
+ sculptOverlay(c,{zones,brush,selection}){
   c.save();c.setLineDash([.002,.002]);c.lineWidth=.0006;c.strokeStyle='#f3e6c2aa';
   for(const z of zones){c.beginPath();c.arc(z.x,z.y,z.r0,0,Math.PI*2);c.stroke();}
-  // Walls tool: a round handle on each movable wall, and the wall being moved highlighted.
-  if(walls){c.setLineDash([]);
-   if(walls.active){c.beginPath();walls.active.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.lineWidth=.0022;c.lineCap='round';c.lineJoin='round';c.strokeStyle=walls.invalid?'#f0a24a':'#fff6dc';c.stroke();}
-   for(const [x,y] of walls.handles){c.beginPath();c.arc(x,y,.0055,0,Math.PI*2);c.fillStyle='#14221add';c.fill();c.lineWidth=.0012;c.strokeStyle='#fff6dc';c.stroke();}}
+  if(selection){c.setLineDash([]);c.lineWidth=.0016;c.strokeStyle=selection.invalid?'#f0a24a':'#fff6dc';const o=selection.object;c.beginPath();
+   if(selection.type==='wall'){o.points.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.lineCap='round';c.lineJoin='round';}
+   else if(selection.type==='patch')c.ellipse(o.x,o.y,o.rx+.002,o.ry+.002,0,0,Math.PI*2);else c.arc(o.x,o.y,(o.r??.009)+.002,0,Math.PI*2);c.stroke();
+   if(selection.handle){const [x,y]=selection.handle;c.beginPath();c.arc(x,y,.0055,0,Math.PI*2);c.fillStyle='#14221add';c.fill();c.lineWidth=.0012;c.stroke();}}
   if(brush){c.strokeStyle=brush.limited?'#f0a24a':brush.tool==='pile'?'#bfe3ff':'#fff6dc';c.lineWidth=.0008;c.setLineDash([.003,.003]);c.beginPath();c.arc(brush.x,brush.y,brush.R,0,Math.PI*2);c.stroke();
    c.setLineDash([]);c.lineWidth=.0014;c.beginPath();c.arc(brush.x,brush.y,brush.R/Math.sqrt(5),0,Math.PI*2);c.stroke();}
   c.restore();

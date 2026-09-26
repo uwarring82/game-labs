@@ -44,7 +44,10 @@ export function newBall(material='steel',surface='wood',wallMaterial='wood',open
   const p=BALLS[material];if(!p||!CONTACTS[material][surface]||!WALL_CONTACTS[material][wallMaterial])throw new Error('Unknown material or surface');
   if(!(size>=BALL_SIZES.min&&size<=BALL_SIZES.max))throw new Error('Ball size out of range');
   const r=p.radius*size,m=p.mass!==undefined?p.mass*size**(p.shell?2:3):4/3*Math.PI*r**3*p.density,layout=layoutFor(material,level,r);
-  const b={...layout.start,z:r,vx:0,vy:0,vz:0,wx:0,wy:0,wz:0,q:[1,0,0,0],time:0,r,m,I:p.inertiaRatio*m*r*r,density:m/(4/3*Math.PI*r**3),material,surface,wallMaterial,openEdges,dwell:0,groundHeight:0,supportGap:0,normalLoad:m*G,contactSurface:surface,grounded:true,slip:0,regime:'rest',impacts:0,skipped:0,overHole:null};
+  // The ball starts on the ground. A start moved onto sculpted ground sits h higher; the
+  // relief's own shelf (|h| ~ 3e-10 m) keeps z = r exactly, as before.
+  const sampled=layout.terrain.sample(layout.start.x,layout.start.y).h,ground=Math.abs(sampled)<1e-6?0:sampled,z=ground?r+ground:r;
+  const b={...layout.start,z,vx:0,vy:0,vz:0,wx:0,wy:0,wz:0,q:[1,0,0,0],time:0,r,m,I:p.inertiaRatio*m*r*r,density:m/(4/3*Math.PI*r**3),material,surface,wallMaterial,openEdges,dwell:0,groundHeight:ground,supportGap:0,normalLoad:m*G,contactSurface:surface,grounded:true,slip:0,regime:'rest',impacts:0,skipped:0,overHole:null};
   Object.defineProperty(b,'layout',{value:layout,writable:true,configurable:true,enumerable:false});return b;
 }
 export function kineticEnergy(b){return .5*b.m*(b.vx*b.vx+b.vy*b.vy+b.vz*b.vz)+.5*b.I*(b.wx*b.wx+b.wy*b.wy+b.wz*b.wz);}
@@ -104,7 +107,8 @@ export function resolvePolyline(b,w,p,onContact,field=flatTerrain){
  }
  return hit;
 }
-export function patchAt(b,layout){return layout.patches?.find(p=>((b.x-p.x)/p.rx)**2+((b.y-p.y)/p.ry)**2<1)?.kind??null;}
+// Where patches overlap, the one drawn on top (the later one) applies.
+export function patchAt(b,layout){return layout.patches?.findLast(p=>((b.x-p.x)/p.rx)**2+((b.y-p.y)/p.ry)**2<1)?.kind??null;}
 function openingAt(x,y,holes){return holes.findIndex(h=>Math.hypot(x-h.x,y-h.y)<h.r);}
 function floorContact(b,holes,p,rimProfile,onContact,field,layout,finiteFloor,g){
   if(finiteFloor&&(b.x<0||b.x>layout.width||b.y<0||b.y>layout.height)){

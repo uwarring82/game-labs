@@ -1,6 +1,6 @@
 import {Heightfield,FLAT} from './terrain.js';
 import {RELIEF} from './landscape.js';
-import {movableWalls,posedWall,wallProblem,wrapAngle,isIdentity} from './walls.js';
+import {objectsOf,levelWith,sameObjects,objectProblem,movableWalls,transformWall} from './objects.js';
 // Sculpt v0.1: player edits on top of the validated relief. Edits are node deltas
 // on the level's own Hermite grid, so the edited board is still one C1 potential
 // whose gradient and Hessian feed the unchanged contact model.
@@ -41,7 +41,9 @@ const GOAL_BLEND=.018+.065,CELL_DIAGONAL=.0036;
 // Each fade is 30 mm wide: a steeper mask would itself use up the slope and curvature
 // budget and block brushes well outside the ring.
 const FADE=.03;
-export function keepOuts(level){return[{x:level.start.x,y:level.start.y,r0:.025,r1:.025+FADE},{x:level.goal.x,y:level.goal.y,r0:GOAL_BLEND+CELL_DIAGONAL,r1:GOAL_BLEND+CELL_DIAGONAL+FADE},...level.holes.map(h=>({x:h.x,y:h.y,r0:h.r+.004,r1:h.r+.004+FADE}))];}
+// The open board has no summit, shelf or authored holes to protect. On the relief the zones
+// stay where the relief built them, even when the start, holes or goal ring move.
+export function keepOuts(level){if(level.flat)return[];return[{x:level.start.x,y:level.start.y,r0:.025,r1:.025+FADE},{x:level.goal.x,y:level.goal.y,r0:GOAL_BLEND+CELL_DIAGONAL,r1:GOAL_BLEND+CELL_DIAGONAL+FADE},...level.holes.map(h=>({x:h.x,y:h.y,r0:h.r+.004,r1:h.r+.004+FADE}))];}
 function zone(z,x,y){
  const ex=x-z.x,ey=y-z.y,d=Math.sqrt(ex*ex+ey*ey),w=z.r1-z.r0,t=(d-z.r0)/w;
  if(t<=0)return[0,0,0,0];if(t>=1)return null;
@@ -98,32 +100,29 @@ export class Sculptor{
    for(const z of this.zones){const g=zone(z,i*f.sx,j*f.sy);if(g)m=[m[0]*g[0],m[1]*g[0]+m[0]*g[1],m[2]*g[0]+m[0]*g[2],m[3]*g[0]+m[1]*g[2]+m[2]*g[1]+m[0]*g[3]];}
    this.mask.set(m,4*(j*(f.nx+1)+i));}
   // history holds strokes and wall moves in the order made, for undo.
-  this.strokes=[];this.poses=new Map();this.history=[];this.stash=null;this.stroke=null;this.version=0;this.wallVersion=0;this.lastAlpha=1;
+  // objects: start, goal, walls, holes and patches as placed now (objects.js); baseObjects
+  // as the board began. history holds strokes and object changes in the order made.
+  this.baseObjects=objectsOf(level);this.objects=objectsOf(level);
+  this.strokes=[];this.history=[];this.stash=null;this.stroke=null;this.version=0;this.objectVersion=0;this.lastAlpha=1;
   level.edits=this.edits;
  }
- get edited(){return this.strokes.length>0||this.poses.size>0;}
+ get objectsChanged(){return!sameObjects(this.objects,this.baseObjects);}
+ get edited(){return this.strokes.length>0||this.objectsChanged;}
  get canUndo(){return this.history.length>0||!!this.stash;}
  // The level to play: the relief itself until a wall moves, then a copy with the moved
  // walls (a new object per wall change, so layout caches stay valid).
  currentLevel(){
-  if(!this.poses.size)return this.level;
-  if(this.levelVersion!==this.wallVersion){this.levelVersion=this.wallVersion;this.posedLevel=this.withWalls(this.poses);}
-  return this.posedLevel;
+  if(!this.objectsChanged)return this.level;
+  if(this.levelVersion!==this.objectVersion){this.levelVersion=this.objectVersion;this.placedLevel=levelWith(this.level,this.objects);}
+  return this.placedLevel;
  }
- withWalls(poses){return{...this.level,walls:this.level.walls.map((w,i)=>posedWall(w,poses.get(i)))};}
- // Checks a pose for one wall. Returns the level it would give, or the reason it is refused.
- tryWall(index,pose){
-  if(!movableWalls(this.level).includes(index))return{ok:false,reason:'The border stays.'};
-  const poses=new Map(this.poses);if(isIdentity(pose))poses.delete(index);else poses.set(index,pose);const level=this.withWalls(poses),reason=wallProblem(this.level,level.walls);
-  return reason?{ok:false,reason}:{ok:true,level};
- }
- // A pose equal to the current one is no move; the authored pose removes the entry, so
- // the level is the relief itself again.
- moveWall(index,pose){
-  const current=this.poses.get(index)??{dx:0,dy:0,a:0};
-  if(pose.dx===current.dx&&pose.dy===current.dy&&pose.a===current.a||!this.tryWall(index,pose).ok)return false;
-  this.history.push({wall:index,before:this.poses.get(index)??null});
-  if(isIdentity(pose))this.poses.delete(index);else this.poses.set(index,pose);this.stash=null;this.wallVersion++;return true;
+ // Checks a set of objects. Returns the level it would give, or the reason it is refused.
+ tryObjects(objects){const reason=objectProblem(this.level,objects);return reason?{ok:false,reason}:{ok:true,level:sameObjects(objects,this.baseObjects)?this.level:levelWith(this.level,objects)};}
+ // Unchanged objects are no edit. Returning to the board's own layout makes the level the
+ // base level itself again.
+ setObjects(objects){
+  if(sameObjects(objects,this.objects)||!this.tryObjects(objects).ok)return false;
+  this.history.push({objects:this.objects});this.objects=objects;this.stash=null;this.objectVersion++;return true;
  }
  quantize(x,y){const f=this.level.field,g=SCULPT.grid;return[Math.round(Math.min(f.width,Math.max(0,x))/g),Math.round(Math.min(f.height,Math.max(0,y))/g)];}
  begin(tool,size,x,y){if(this.stroke)this.end();this.stroke={tool,size,ticks:[]};this.cursor=this.quantize(x,y);this.path=[];this.lastAlpha=1;}
@@ -142,11 +141,11 @@ export class Sculptor{
  end(){const s=this.stroke;this.stroke=null;if(!s?.ticks.length)return false;this.strokes.push(s);this.history.push({stroke:true});this.stash=null;return true;}
  undo(){
   if(this.stroke)this.end();const h=this.history.pop();
-  if(!h){if(!this.stash)return false;({strokes:this.strokes,poses:this.poses,history:this.history}=this.stash);this.stash=null;this.wallVersion++;this.replay();return true;}
-  if(h.stroke){this.strokes.pop();this.replay();}else{if(h.before)this.poses.set(h.wall,h.before);else this.poses.delete(h.wall);this.wallVersion++;}
+  if(!h){if(!this.stash)return false;({strokes:this.strokes,objects:this.objects,history:this.history}=this.stash);this.stash=null;this.objectVersion++;this.replay();return true;}
+  if(h.stroke){this.strokes.pop();this.replay();}else{this.objects=h.objects;this.objectVersion++;}
   return true;
  }
- reset(){if(this.stroke)this.end();if(!this.edited)return false;this.stash={strokes:this.strokes,poses:this.poses,history:this.history};this.strokes=[];this.poses=new Map();this.history=[];this.wallVersion++;this.replay();return true;}
+ reset(){if(this.stroke)this.end();if(!this.edited)return false;this.stash={strokes:this.strokes,objects:this.objects,history:this.history};this.strokes=[];this.objects=objectsOf(this.level);this.history=[];this.objectVersion++;this.replay();return true;}
  amount(s){return(s.tool==='pile'?-1:1)*SCULPT.rate*SCULPT.tick*flatLimit(SCULPT.sizes[s.size],s.tool);}
  // Stamps spaced at most R/8 along the recorded polyline share one tick's deposit,
  // so a slow drag ploughs deeper than a fast one.
@@ -202,25 +201,34 @@ export class Sculptor{
   for(const s of this.strokes)for(const t of s.ticks){const d=this.deltaFor(s,t.slice(1));if(!d)continue;this.edits.add(d,t[0],false);i0=Math.min(i0,d.i0);j0=Math.min(j0,d.j0);i1=Math.max(i1,d.i1);j1=Math.max(j1,d.j1);}
   if(i1>=0)this.edits.refresh(i0-1,j0-1,i1,j1);this.version++;
  }
- // Strokes and wall poses are saved separately: stage 07 shares the strokes key and knows
- // nothing of walls, so it must never see (or rewrite away) the poses.
- save(){return{v:SCULPT_VERSION,seed:this.level.seed,strokes:this.strokes};}
- saveWalls(){return{v:1,seed:this.level.seed,walls:Object.fromEntries([...this.poses].map(([i,p])=>[i,[p.dx,p.dy,p.a]]))};}
+ // Strokes and objects are saved separately: stage 07 shares the strokes key and knows
+ // nothing of objects, so it must never see (or rewrite away) them.
+ save(){return{v:SCULPT_VERSION,seed:this.level.seed,strokes:[...this.strokes]};}
+ saveObjects(){return{v:1,seed:this.level.seed,objects:this.objects};}
+ readObjects(data){
+  let objects=null;
+  if(data?.objects&&typeof data.objects==='object'){const o=data.objects,num=Number.isFinite,point=p=>Array.isArray(p)&&p.length===2&&p.every(num);
+   const ok=o.start&&num(o.start.x)&&num(o.start.y)&&o.goal&&num(o.goal.x)&&num(o.goal.y)&&num(o.goal.r)&&Array.isArray(o.walls)&&Array.isArray(o.holes)&&Array.isArray(o.patches)
+    &&o.walls.every(w=>['border','low','tall','pocket'].includes(w?.kind)&&num(w.height)&&Array.isArray(w.points)&&w.points.length>=2&&w.points.every(point))
+    &&o.holes.every(h=>h&&num(h.x)&&num(h.y)&&num(h.r))&&o.patches.every(p=>['sand','resin'].includes(p?.kind)&&num(p.x)&&num(p.y)&&num(p.rx)&&num(p.ry));
+   // The border is the board's own and never moves.
+   const border=ob=>JSON.stringify(ob.walls.filter(w=>w.kind==='border'));
+   if(ok&&border(o)===border(this.baseObjects))objects={start:{x:o.start.x,y:o.start.y},goal:{x:o.goal.x,y:o.goal.y,r:o.goal.r},walls:o.walls.map(w=>({kind:w.kind,height:w.height,points:w.points.map(p=>[...p])})),holes:o.holes.map(h=>({x:h.x,y:h.y,r:h.r})),patches:o.patches.map(p=>({kind:p.kind,x:p.x,y:p.y,rx:p.rx,ry:p.ry}))};
+  }else if(data?.walls&&typeof data.walls==='object'){objects=objectsOf(this.level);const movable=movableWalls(objects);
+   for(const [key,p] of Object.entries(data.walls)){const i=Number(key);if(movable.includes(i)&&Array.isArray(p)&&p.length===3&&p.every(Number.isFinite))objects.walls[i]=transformWall(objects.walls[i],{dx:p[0],dy:p[1],a:p[2]});}}
+  return objects&&!objectProblem(this.level,objects)?objects:null;
+ }
  load(data){
   const f=this.level.field,g=SCULPT.grid,maxX=Math.round(f.width/g),maxY=Math.round(f.height/g);
   const ok=data?.v===SCULPT_VERSION&&data.seed===this.level.seed&&Array.isArray(data.strokes)&&data.strokes.every(s=>['dig','pile'].includes(s?.tool)&&Object.hasOwn(SCULPT.sizes,s.size)&&Array.isArray(s.ticks)&&s.ticks.length>0&&
    s.ticks.every(t=>Array.isArray(t)&&t.length>=3&&t.length%2===1&&typeof t[0]==='number'&&t[0]>0&&t[0]<=1&&t.slice(1).every((n,k)=>Number.isInteger(n)&&n>=0&&n<=(k%2?maxY:maxX))));
   if(!ok)return false;
-  // Wall poses are optional (stage 07 saved none). A malformed or rule-breaking pose drops
-  // that wall back to its authored place; the rest still load.
-  const poses=new Map(),movable=movableWalls(this.level);
-  for(const [key,p] of Object.entries(data.walls??{})){const i=Number(key);if(!movable.includes(i)||!Array.isArray(p)||p.length!==3||!p.every(Number.isFinite)||Math.abs(p[0])>1||Math.abs(p[1])>1)continue;
-   const pose={dx:p[0],dy:p[1],a:wrapAngle(p[2])};if(!isIdentity(pose)&&!wallProblem(this.level,this.withWalls(new Map([[i,pose]])).walls))poses.set(i,pose);}
-  if(poses.size>1&&wallProblem(this.level,this.withWalls(poses).walls))poses.clear();
-  this.strokes=data.strokes.map(s=>({tool:s.tool,size:s.size,ticks:s.ticks.map(t=>[...t])}));this.poses=poses;
-  // The order of strokes and wall moves is not saved: after a reload, undo takes back
-  // wall moves (to the authored wall) before strokes.
-  this.history=[...this.strokes.map(()=>({stroke:true})),...[...poses.keys()].map(i=>({wall:i,before:null}))];
-  this.stash=null;this.stroke=null;this.wallVersion++;this.replay();return true;
+  // Objects are optional (stage 07 saved none): data.objects (this format) or data.walls
+  // (stage 08: {index: [dx, dy, turn]} for the relief's authored walls). Objects that break
+  // the rules fall back to the board's own layout; the strokes still load.
+  this.strokes=data.strokes.map(s=>({tool:s.tool,size:s.size,ticks:s.ticks.map(t=>[...t])}));
+  this.objects=this.readObjects(data)??objectsOf(this.level);
+  this.history=[...this.strokes.map(()=>({stroke:true})),...(this.objectsChanged?[{objects:objectsOf(this.level)}]:[])];
+  this.stash=null;this.stroke=null;this.objectVersion++;this.replay();return true;
  }
 }

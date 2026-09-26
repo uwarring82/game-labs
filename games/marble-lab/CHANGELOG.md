@@ -150,3 +150,40 @@ Before commit, the code was reviewed adversarially and each finding re-checked b
 - test gaps.
 
 The flow was driven in headless Chrome, and phone checks for both features are pending.
+
+## The open board and movable objects — 26 September 2026
+
+The owner asked: “Make also other obstacles move and scaleable. The initial board should start fully flat and empty.”
+
+- **Open board.** The game now opens on a flat, empty board: the border, a start and a goal ring. The player builds the course with Sculpt. Saddle and Basin remains as a second board under Materials & play, and each board keeps its own edits.
+- **Move tool.** It moves every object except the border. A round handle turns and stretches walls, or resizes holes, patches and the goal ring. Add places low or tall walls, holes, sand and resin, and ✕ removes the selected one.
+- **Rules.** Every layout stays playable for every ball size:
+  - holes are never narrower than the largest ball;
+  - start and goal keep clearances;
+  - a way from the start to the goal must remain, with holes and tall walls blocking and low walls hoppable.
+- **Flip.** On a phone in portrait, ⇅ moves the toolbar to the other edge, since either edge covers the start or the goal.
+- **Model.**
+  - The open board has no goal summit, so it has no per-ball goal correction and no Sculpt keep-outs.
+  - On Saddle and Basin, the summit and keep-outs stay where the relief built them.
+  - A ball starts on the ground even where the start sits on sculpted ground.
+  - Patches are now drawn axis-aligned, exactly where the physics applies them.
+- **Saves.** Objects are saved per board, apart from the strokes that stages 07 and 08 share, and a stage-08 wall save is migrated.
+- **Review.** Before commit, the code was reviewed adversarially and each finding was re-checked by a skeptic. The confirmed findings are fixed:
+  - deleting during a drag corrupted another object;
+  - short walls could not be moved;
+  - Add stacked objects on top of each other;
+  - a drag back to the start counted as an edit;
+  - resin or sand could cover the start;
+  - wall-tip gaps were 0.25 mm too narrow for the largest ball;
+  - overlapping patches acted differently from how they were drawn;
+  - handles were too small, or sat off the board;
+  - the toolbar could cover the goal on wide screens;
+  - the Add dropdown could zoom on iOS;
+  - the ball was drawn at the old start;
+  - help text and exports were wrong for the open board;
+  - tests let mutants survive.
+- **Evidence.**
+  - The regenerated relief evidence is still byte-identical to the same-machine baseline.
+  - `npm test` runs 130 tests. The object tests replace the wall tests, and the ball-size tests moved to their own file.
+  - The flow was driven in headless Chrome.
+  - Phone checks are pending.

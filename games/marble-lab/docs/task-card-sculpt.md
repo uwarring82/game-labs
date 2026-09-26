@@ -3,6 +3,7 @@
 Owner: U. Warring. Date: 26 September 2026. Status: **draft, unendorsed**.
 - **Stage 07.** S1 (terrain editing) is implemented and published as development stage 07.
 - **Stage 08.** Movable authored walls (the owner's choice under D6, part of S2) and a variable ball size (an owner request, D8) are implemented as development stage 08.
+- **Stage 09.** A flat, empty open board as the start, and every object movable and scalable (D9), is implemented as development stage 09.
 - **Not started.** Sand pits (the rest of S2), S3 and S4. The card depends on Task Card “Relief” v0.1, whose two-phone gate is still open. Values marked *proposed, to tune* have no measurement behind them.
 
 For the owner: Purpose, Decisions and Stages take about ten minutes. The rest is for implementers.
@@ -57,6 +58,16 @@ Every push to `main` republishes `latest/`, and stage entries stay playable perm
   - removing the pocket wall frees steel in 0.5 s, and pocketTrial still passes.
 - **Consequence.** On an edited, unchecked board these changes are the player's to make (D5).
 
+**D9. The open board and movable, scalable objects.** Requested by the owner on 26 September 2026: “Make also other obstacles move and scaleable. The initial board should start fully flat and empty.” The implementer decided the details:
+- **Default board.** The game opens on a flat board with only the border, a start and a goal ring. Neither the start nor the goal is an obstacle.
+- **Saddle and Basin.** It stays as a second board, to play or to edit.
+- **Every object except the border moves.**
+  - Walls turn and stretch.
+  - Holes and the goal ring resize.
+  - Patches scale.
+  - Low or tall walls, holes, sand and resin can be added and removed.
+- **Why the rules.** They keep every layout playable for every ball size.
+
 **D8. Ball size.** Requested by the owner on 26 September 2026 and decided by the implementer: the size is relative to the board.
 - **Range.** The ball ranges from 0.5 to 1.6 times its nominal diameter, while the board keeps the nominal ball's scale. Larger balls would be wider than the holes and could seat in them for good.
 - **Why not scale the board.** Scaling the board with the ball, as the five materials already do, would change only the pace of play, not what can happen.
@@ -72,6 +83,7 @@ Every push to `main` republishes `latest/`, and stage entries stay playable perm
 | --- | --- | --- |
 | S1 | Build phase and clay brush: dig or pile, hold, drag. Undo, reset, local autosave, dirty-rectangle rendering. Terrain only. | `07-sculpt`, implemented |
 | S2 | Movable authored walls and the level-as-input refactor (done), with variable ball size (D8). Sand pits are still planned. | `08-walls-and-size`, implemented; sand pits later |
+| — | The open board and movable, scalable objects (D9), beyond S2's walls. | `09-open-board`, implemented |
 | S3 | In-browser check, share links, puzzle boards with a material budget. | `09`, only after the Relief two-phone gate (puzzles are new boards) |
 | S4 | Live sculpting, with its own task card. | After its own gate |
 
@@ -202,7 +214,37 @@ h(s) = −a (1 − 5s)(1 − s)³ for s < 1, else 0.
 - **Versioning.** SCULPT_VERSION must be bumped whenever the brush, the bounds, the keep-outs or the relief change, because a stored α is valid only for what produced it.
 - **Limits.** Autosave is a convenience only. All Game Labs games and stages share one 5 MiB quota, and Safari may evict data after 7 days without interaction.
 
-### Movable walls (stage 08)
+### Objects and the open board (stage 09)
+
+Stage 09 generalises the stage-08 walls to every object on a board (dist/objects.js).
+
+- **Open board.** Same size as Saddle and Basin and perfectly flat.
+  - **Contents.** The border (6r high), a start at (41, 67) mm and a goal ring of 15 mm radius at (235, 568) mm.
+  - **No summit.** There is therefore no per-ball goal correction and there are no Sculpt keep-outs.
+  - **Saves.** Its edits are saved under the seed `flat`.
+- **Objects.** Start, goal ring, walls (border, low 10 mm, tall 30 mm, and the relief's pocket wall), holes, and sand or resin patches, in base coordinates.
+- **Gestures.**
+  - **Move.** Every object but the border moves.
+  - **Turn and stretch.** A wall's handle, 85% along it, turns and stretches it about its box centre, in whole degrees and steps of 0.01.
+  - **Resize.** The handle of a hole, patch or the goal ring sits 6 mm outside its rim, on the side that stays on the board. Dragging it away from or towards the centre changes the radius by that much; patches scale uniformly.
+  - **Priority.** Only the selected object's handle is drawn and grabbed. It wins within about 24 CSS px, and only when the press is nearer to it than to the object's centre. Otherwise the body is taken, in this order: start, holes, goal ring, walls near their line, patches, walls within reach.
+  - **Snapping.** Displacements snap to 0.5 mm, so a drag back to where it began changes nothing.
+- **Add and remove.** ＋ Add opens a row of kinds. A new object goes at the board centre, or at the nearest place on a spiral that the rules accept and that does not cover another object of its kind. A full board says so. Holes, patches and non-border walls can be removed. The start and the goal ring cannot. Adding or removing ends any drag first.
+- **Rules** (why): every layout stays playable for every ball size.
+  - At most 12 movable walls, 12 holes and 10 patches.
+  - The start stays on the board, with room for the largest ball.
+  - The goal ring stays 12–40 mm in radius, on the board and 25 mm clear of the start.
+  - Holes stay 8.25–25 mm in radius, never narrower than the largest ball (8 mm), on the board, 25 mm beyond their radius from the start and 5 mm from the goal ring.
+  - Patches stay 8–80 mm in radius, with their centre on the board, and 25 mm clear of the start. Resin, and sand for some balls, holds a ball at rest against any tilt.
+  - Where patches overlap, the one drawn on top (added later) applies.
+  - Walls stay 20–350 mm long, on the board, 25 mm from the start and 12.5 mm beyond each hole's and the goal ring's radius.
+  - A way from the start to the goal must remain for the largest ball. The check is a flood fill on a 4 mm grid, blocked near the border, near every wall except low walls (hoppable in full motion), and over holes. Its margin is widened by half a cell, so the path between two free cells never passes a wall tip closer than the ball's radius.
+- **On Saddle and Basin.** The Sculpt keep-outs and the goal summit stay where the relief built them, even when the start, holes or goal ring move. The summit's per-ball correction stays at the built summit (level.summit).
+- **Start height.** A ball starts on the ground: z = r + h(start) when the start sits on sculpted ground, and z = r on the relief's shelf, as before.
+- **Saves.** Objects are saved per board under `board/v1/<seed>`, apart from the strokes, which stages 07 and 08 share for the relief. A stage-08 wall save is migrated once. Saved objects that break the rules, or touch the border, fall back to the board's own layout.
+- **Drawing.** Patches are drawn axis-aligned, exactly where patchAt applies them. ⇅ moves the toolbar to the other edge wherever it covers the board: in portrait, one edge covers the start and the other the goal. Beside the board, in small landscape windows, it is hidden. On the flat board, contour levels are offset by half an interval, so no line sits where untouched ground meets an edit.
+
+### Movable walls (stage 08; generalised in stage 09)
 
 - **What moves.** Every wall except the border: the low wall and the pocket wall. Heights, kinds and materials never change, and a wall's foot follows the ground wherever it is put.
 - **Pose.** A turn by a about the centre of the wall's bounding box, then a shift (dx, dy), in base coordinates. Poses are stored on a 0.5 mm grid and in whole degrees.

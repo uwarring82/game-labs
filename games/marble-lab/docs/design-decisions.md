@@ -19,7 +19,7 @@ Owner: U. Warring. Current specification: Task Card “Relief” v0.1, 25 Septem
 - Walls have low (2r) and tall (6r) heights. Top edges are rims, not platforms. Optional outer-edge falls are retained.
 - Traps arise from confinement or loss thresholds. A pocket, sandy pothole and resin patch replace nonphysical latches or jamming states.
 - Precomputed fixed-light relief shading, contours, material patches, physically driven spin and flight shadows communicate state without terrain labels.
-- Generator acceptance uses a bounded tilt bot; impossible candidates must be rejected. No second playable level before two-phone acceptance. An edited Saddle and Basin (Sculpt) is a labelled variant of the one level, not a second level.
+- Generator acceptance uses a bounded tilt bot; impossible candidates must be rejected. No second authored level before two-phone acceptance. An edited Saddle and Basin, and the open board the player builds on (owner's request, 26 September 2026), are labelled and unchecked, not authored levels.
 
 ## Explicit implementation interpretations
 
@@ -64,6 +64,30 @@ The owner had asked to be consulted before engine-extraction step 1. The request
    - **Coverage.** Level acceptance covers the nominal sizes only.
    - **Contact solver.** At 1.6× the Sculpt hollow bound reaches r·κ = 0.4 for every ball; the support solver was checked correct at 0.5.
 10. Walls must leave a way from the start to the goal for the largest ball, checked by a coarse flood fill that treats low walls as hoppable. Without it, a legal pose of the pocket wall shut a 2× ball in at the start. Wall poses are saved under their own key, because stage 07 shares the strokes key and would erase them.
+
+**The open board and movable objects**
+
+On 26 September 2026 the owner asked: “Make also other obstacles move and scaleable. The initial board should start fully flat and empty.”
+
+11. The game opens on a flat, empty board of the same size as Saddle and Basin. It has the border, a start and a goal ring, and nothing else.
+   - **Why a start and a goal remain.** The game needs both, but neither is an obstacle.
+   - **No summit.** The goal ring sits on flat ground, so there is no per-ball goal correction and there are no Sculpt keep-outs.
+   - **Saddle and Basin stays.** It remains a second board under Materials & play: the validated relief, and still the physics default for scripts and tests. It is a template to play or edit, not a new authored level. The owner can remove it.
+   - **Saves.** Each board keeps its own edits.
+12. Every object except the border moves.
+   - **Scaling.** Walls turn and stretch about their box centre; holes and the goal ring change radius; patches scale uniformly.
+   - **The handle.** A round handle, drawn only on the selected object, does both jobs. It sits 85% along a wall, or 6 mm outside a round object's rim, on the side that stays on the board. It is grabbed within about 24 CSS px, but only when the press is nearer to it than to the object's centre, so short walls and small holes can still be moved.
+   - **Snapping.** Drags move by snapped displacements, so a drag back to where it began changes nothing.
+   - **Adding and removing.** Low walls (10 mm), tall walls (30 mm), holes, sand and resin can be added and removed.
+   - **Rules.**
+     - The start stays 25 mm from walls and holes, and outside every patch, because resin, and sand for some balls, would hold it against any tilt.
+     - Holes stay 8.25–25 mm in radius, never narrower than the largest ball, and clear of the start and the goal.
+     - The goal ring stays 12–40 mm in radius.
+     - Walls stay 20–350 mm long and clear of the start, the holes and the goal.
+     - A way from the start to the goal must remain for the largest ball. Holes count as blocked and low walls as hoppable, and the flood fill keeps half a cell of margin at wall tips.
+   - **The relief's terrain.** On Saddle and Basin the terrain keep-outs and the goal summit stay where the relief built them, wherever the objects move.
+13. Objects are saved under their own key per board, because stages 07 and 08 share the relief's strokes key. A stage-08 wall save is read once and turned into objects.
+14. Patches are now drawn axis-aligned, exactly where patchAt applies them. The earlier drawing was rotated by 0.15 rad, so 4–8% of a patch was drawn where it did not act.
 
 ## Evidence
 

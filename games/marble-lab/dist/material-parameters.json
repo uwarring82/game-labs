@@ -701,16 +701,37 @@
     "max": 1.6,
     "rule": "multiplies the nominal diameter; the board keeps the nominal scale; solid balls keep density, the table-tennis shell mass scales with area"
   },
-  "wallMoves": {
-    "edge": 0,
-    "start": 0.025,
+  "objects": {
+    "ball": 0.008,
+    "startClear": 0.025,
     "extra": 0.0125,
+    "hole": {
+      "min": 0.00825,
+      "max": 0.025
+    },
+    "goal": {
+      "min": 0.012,
+      "max": 0.04
+    },
+    "patch": {
+      "min": 0.008,
+      "max": 0.08
+    },
+    "wall": {
+      "min": 0.02,
+      "max": 0.35
+    },
+    "count": {
+      "walls": 12,
+      "holes": 12,
+      "patches": 10
+    },
+    "cell": 0.004,
     "grid": 0.0005,
     "turn": 0.017453292519943295,
-    "ball": 0.008,
-    "cell": 0.004,
-    "movable": "every wall except the border",
-    "pose": "turn about the bounding-box centre, then shift"
+    "movable": "start, goal ring, holes, patches and every wall except the border",
+    "scalable": "walls (length), holes and the goal ring (radius), patches (uniform)",
+    "openBoard": "flat, border only, no goal summit"
   },
   "sculpt": {
     "taskCard": "Sculpt v0.1 (draft, unendorsed)",

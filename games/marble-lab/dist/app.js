@@ -4,19 +4,28 @@ import {Renderer} from './render.js';
 import {watchViewport} from './viewport.js';
 import {SoundEngine} from './sound.js';
 import {MotionInput} from './motion.js';
-import {reliefLevel} from './landscape.js';
+import {reliefLevel,flatLevel} from './landscape.js';
 import {Sculptor,SCULPT,SCULPT_VERSION,flatLimit} from './sculpt.js';
-import {movableWalls,pivot,handleOf,quantizePose,wrapAngle,wallDistance,wallClearances} from './walls.js';
+import {NEW_OBJECTS,NAMES,LISTS,OBJECT_RULES,handleOf,pickObject,dragged,withObject,objectAt,clearances,movableWalls,wallDistance,snap} from './objects.js';
 const motion=new MotionInput();let motionMode='tilt',tiltBudget=8,motionOverlay=false;
-// Sculpt: edits live in the level's edit layer; the stroke list is autosaved per device.
-// Wall poses have their own key: stage 07 shares the strokes key and would drop them.
-const sculptor=new Sculptor(reliefLevel()),SCULPT_KEY=`game-labs/marble-lab/sculpt/v${SCULPT_VERSION}/${reliefLevel().seed}`,WALLS_KEY=`game-labs/marble-lab/sculpt-walls/v1/${reliefLevel().seed}`,SIZE_NAMES={S:'small',M:'medium',L:'large'};
-let sculptTool='dig',sculptSize='M',brushPointer=null,brushAt=null,strokeStart=0,strokeTicks=0,lastPointerType='touch',wallDrag=null,ballSize=1;
-try{const strokes=JSON.parse(localStorage.getItem(SCULPT_KEY)??'null'),walls=JSON.parse(localStorage.getItem(WALLS_KEY)??'null');
-  if(strokes||walls)sculptor.load({v:SCULPT_VERSION,seed:reliefLevel().seed,strokes:[],...strokes,walls:walls?.seed===reliefLevel().seed?walls.walls:undefined});}catch{}
-function saveSculpt(){try{
-  if(sculptor.strokes.length)localStorage.setItem(SCULPT_KEY,JSON.stringify(sculptor.save()));else localStorage.removeItem(SCULPT_KEY);
-  if(sculptor.poses.size)localStorage.setItem(WALLS_KEY,JSON.stringify(sculptor.saveWalls()));else localStorage.removeItem(WALLS_KEY);}catch{}}
+// Boards: the open, flat board (the default) and Saddle and Basin. Each has its own
+// Sculptor and autosave. The relief's strokes key is shared with stages 07 and 08, so
+// objects have their own key; a stage-08 wall save is read once when no object save exists.
+const BOARDS={flat:{level:flatLevel,name:'OPEN BOARD'},relief:{level:reliefLevel,name:'SADDLE AND BASIN'}},SIZE_NAMES={S:'small',M:'medium',L:'large'},sculptors={};
+const keysFor=level=>({strokes:`game-labs/marble-lab/sculpt/v${SCULPT_VERSION}/${level.seed}`,objects:`game-labs/marble-lab/board/v1/${level.seed}`,walls:`game-labs/marble-lab/sculpt-walls/v1/${level.seed}`});
+function sculptorFor(id){
+  if(sculptors[id])return sculptors[id];
+  const level=BOARDS[id].level(),s=new Sculptor(level),k=keysFor(level);
+  try{const read=key=>JSON.parse(localStorage.getItem(key)??'null'),strokes=read(k.strokes),objects=read(k.objects),walls=objects?null:read(k.walls);
+    if(strokes||objects||walls)s.load({v:SCULPT_VERSION,seed:level.seed,strokes:[],...strokes,objects:objects?.seed===level.seed?objects.objects:undefined,walls:walls?.seed===level.seed?walls.walls:undefined});}catch{}
+  return sculptors[id]=s;
+}
+let board=(()=>{try{return localStorage.getItem('game-labs/marble-lab/board')==='relief'?'relief':'flat';}catch{return'flat';}})(),sculptor=sculptorFor(board);
+let sculptTool='dig',sculptSize='M',brushPointer=null,brushAt=null,strokeStart=0,strokeTicks=0,lastPointerType='touch',drag=null,selected=null,ballSize=1;
+function saveSculpt(){const k=keysFor(sculptor.level);try{
+  if(sculptor.strokes.length)localStorage.setItem(k.strokes,JSON.stringify(sculptor.save()));else localStorage.removeItem(k.strokes);
+  // Keep an object save once a stage-08 wall save exists, so it is never read again.
+  if(sculptor.objectsChanged||localStorage.getItem(k.walls))localStorage.setItem(k.objects,JSON.stringify(sculptor.saveObjects()));else localStorage.removeItem(k.objects);}catch{}}
 const mm=r=>(r*2000).toFixed(2).replace(/\.?0+$/,'');
 
 const $ = id => document.getElementById(id);
@@ -46,7 +55,8 @@ function updateControls() {
   for(const h of document.querySelectorAll('.hud')){h.inert=playing||building;h.setAttribute('aria-hidden',String(playing||building));}
   $('sculptBar').hidden=!building;$('sculpt').disabled=playing||building||!!calibrationSamples;
   for(const [id,tool] of SCULPT_TOOLS){$(id).classList.toggle('selected',sculptTool===tool);$(id).setAttribute('aria-pressed',String(sculptTool===tool));}
-  $('sculptSize').hidden=sculptTool==='walls';$('sculptSize').textContent=sculptSize;$('sculptSize').setAttribute('aria-label',`Brush size: ${SIZE_NAMES[sculptSize]}`);
+  const moving=sculptTool==='move';$('sculptSize').hidden=moving;$('addObject').hidden=!moving;$('deleteObject').hidden=!moving;if(!moving||!building)$('addMenu').hidden=true;$('deleteObject').disabled=!deletable(selected);
+  $('sculptSize').textContent=sculptSize;$('boardChoice').value=board;$('sculptSize').setAttribute('aria-label',`Brush size: ${SIZE_NAMES[sculptSize]}`);
   $('sculptUndo').disabled=!sculptor.canUndo;$('sculptReset').disabled=!sculptor.edited;if(building)sculptStatus();
   $('pauseButton').hidden=!playing;
   $('motionQuick').hidden=!playing;$('motionQuick').textContent=mode!=='tilt'?'Touch tilt':motionMode==='full'?'Full motion':'Tilt only';$('motionQuick').disabled=mode!=='tilt';$('motionQuick').setAttribute('aria-pressed',String(motionMode==='full'));
@@ -67,7 +77,7 @@ function updateControls() {
   if(document.body.dataset.surface!==surface)document.body.dataset.surface=surface;
   if(document.body.dataset.wall!==wallMaterial)document.body.dataset.wall=wallMaterial;
   const layout=layoutFor(material);
-  $('sceneName').textContent=`SADDLE AND BASIN · ${sculptor.edited?'EDITED':'DRAFT'}`;
+  $('sceneName').textContent=`${BOARDS[board].name} · ${sculptor.edited?'EDITED':board==='flat'?'EMPTY':'DRAFT'}`;
   $('boardDimensions').textContent=`${(layout.width*100).toFixed(0)} × ${(layout.height*100).toFixed(0)} cm board`;
   $('wallDescription').textContent=WALL_MATERIALS[wallMaterial].description;
   $('presetDescription').textContent = `${BALLS[material].name} · ${SURFACES[surface].name} · ${WALL_MATERIALS[wallMaterial].name}`;
@@ -80,10 +90,19 @@ function pause(reason = 'Your move, when you’re ready.') {
   if (phase === 'falling') { ball = freshBall(); phase = 'paused'; fallHole = null; message('Ready to try again?', reason); }
   stopInput(); sound.pause(); clock.reset(); updateControls();
 }
+function boardMessage() {
+  if (board === 'flat' && !sculptor.edited) message('An empty board.', 'Roll to the green ring, or press Sculpt to build a course.');
+  else message('Find your balance.', sculptor.edited ? 'Your board: the route bot has not checked it.' : 'Climb, dip, then hold the green ring for 3 seconds.');
+}
+function setBoard(id) {
+  if (id === board || !BOARDS[id]) return; endStroke(); board = id; sculptor = sculptorFor(id); selected = null;
+  try { localStorage.setItem('game-labs/marble-lab/board', id); } catch {}
+  renderer.setLevel(sculptor.currentLevel()); restart();
+}
 function restart() {
   sound.pause();renderer.clearMarks();endStroke();brushAt=null;
   ball = freshBall(); elapsed = 0; falls = 0; phase = 'ready'; fallHole = null; clock.reset();
-  smooth = { x:0, y:0 }; stopInput(); message('Find your balance.', sculptor.edited?'Edited board: the route bot has not checked it.':'Climb, dip, then hold the green ring for 3 seconds.'); updateControls();
+  smooth = { x:0, y:0 }; stopInput(); boardMessage(); updateControls();
 }
 // Sculpt is a paused build phase: the physics does not run, and every entry and exit
 // starts a new run from the start shelf, which edits never touch.
@@ -93,37 +112,54 @@ function enterSculpt() {
 }
 // Every new ball uses the current level (moved walls included) and the chosen size.
 function freshBall() { return newBall(material,surface,wallMaterial,openEdges,{level:sculptor.currentLevel(),size:ballSize}); }
-const SCULPT_TOOLS=[['toolDig','dig'],['toolPile','pile'],['toolWalls','walls']];
-// Walls tool: press on a wall to move it, or on its round handle to turn
-// it about the centre of its bounding box. Each pose is checked before it is shown.
-function pickWall(p) {
-  const level=sculptor.currentLevel(),movable=movableWalls(level);let best=null;
-  for(const i of movable){const [hx,hy]=handleOf(level.walls[i]),d=Math.hypot(p.x-hx,p.y-hy);if(d<.015&&(!best||d<best.d))best={index:i,mode:'turn',d};}
-  if(best)return best;
-  for(const i of movable){const d=wallDistance(level.walls[i],p.x,p.y);if(d<.02&&(!best||d<best.d))best={index:i,mode:'move',d};}
-  return best;
-}
-function wallBox(w){const xs=w.points.map(p=>p[0]),ys=w.points.map(p=>p[1]),pad=.02;return{x0:Math.min(...xs)-pad,y0:Math.min(...ys)-pad,x1:Math.max(...xs)+pad,y1:Math.max(...ys)+pad};}
-function dragWall(p) {
-  const d=wallDrag,s=d.start;let pose;
-  // A wall moves only after a deliberate drag: 4 mm of board, or 2° of turn.
-  if(!d.moving){const [cx,cy]=pivot(sculptor.level.walls[d.index].points),x0=cx+s.dx,y0=cy+s.dy,turn=Math.abs(wrapAngle(Math.atan2(p.y-y0,p.x-x0)-Math.atan2(d.p0.y-y0,d.p0.x-x0)));
-   if(d.mode==='move'?Math.hypot(p.x-d.p0.x,p.y-d.p0.y)<.004:turn<2*Math.PI/180)return;d.moving=true;}
-  if(d.mode==='move')pose={dx:s.dx+p.x-d.p0.x,dy:s.dy+p.y-d.p0.y,a:s.a};
-  else{const [cx,cy]=pivot(sculptor.level.walls[d.index].points),x0=cx+s.dx,y0=cy+s.dy;pose={dx:s.dx,dy:s.dy,a:s.a+Math.atan2(p.y-y0,p.x-x0)-Math.atan2(d.p0.y-y0,d.p0.x-x0)};}
-  const result=sculptor.tryWall(d.index,quantizePose(pose));
+const SCULPT_TOOLS=[['toolDig','dig'],['toolPile','pile'],['toolMove','move']];
+// Move tool: press on an object to move it, or on its round handle to turn and stretch a
+// wall or resize a hole, patch or the goal ring. Each change is checked before it is shown.
+const deletable=sel=>!!sel&&(sel.type==='hole'||sel.type==='patch'||sel.type==='wall'&&sculptor.objects.walls[sel.index]?.kind!=='border');
+function objectBox(type,o){const pad=.02;if(type==='wall'){const xs=o.points.map(p=>p[0]),ys=o.points.map(p=>p[1]);return{x0:Math.min(...xs)-pad,y0:Math.min(...ys)-pad,x1:Math.max(...xs)+pad,y1:Math.max(...ys)+pad};}
+  const rx=o.rx??o.r??.01,ry=o.ry??o.r??.01;return{x0:o.x-rx-pad,y0:o.y-ry-pad,x1:o.x+rx+pad,y1:o.y+ry+pad};}
+const union=(a,b)=>({x0:Math.min(a.x0,b.x0),y0:Math.min(a.y0,b.y0),x1:Math.max(a.x1,b.x1),y1:Math.max(a.y1,b.y1)});
+function dragObject(p) {
+  const d=drag;
+  // If the object changed under the drag (Undo, Delete, Add), the drag ends.
+  if(objectAt(sculptor.objects,d.type,d.index)!==d.start){drag=null;return;}
+  // An object moves only after a deliberate drag of 4 mm of board.
+  if(!d.moving){if(Math.hypot(p.x-d.p0.x,p.y-d.p0.y)<.004)return;d.moving=true;}
+  const o=dragged(d.type,d.start,d.mode,d.p0,p),next=withObject(sculptor.objects,d.type,d.index,o),result=sculptor.tryObjects(next);
   if(!result.ok){d.invalid=true;$('sculptStatus').textContent=result.reason;return;}
-  const a=wallBox(renderer.level.walls[d.index]),b=wallBox(result.level.walls[d.index]);
-  d.pose=quantizePose(pose);d.invalid=false;renderer.setLevel(result.level,{x0:Math.min(a.x0,b.x0),y0:Math.min(a.y0,b.y0),x1:Math.max(a.x1,b.x1),y1:Math.max(a.y1,b.y1)});sculptStatus();
+  const before=objectAt(d.objects??sculptor.objects,d.type,d.index);d.objects=next;d.invalid=false;
+  renderer.setLevel(result.level,union(objectBox(d.type,before),objectBox(d.type,o)));sculptStatus();
 }
-function endWallDrag() {
-  const d=wallDrag;if(!d)return;wallDrag=null;
-  if(d.pose&&sculptor.moveWall(d.index,d.pose))saveSculpt();
-  renderer.setLevel(sculptor.currentLevel());if(phase==='build')updateControls();
+// After any change to the board in the build phase, the ball waits at the (maybe moved) start.
+function boardChanged() { renderer.setLevel(sculptor.currentLevel()); if (phase === 'build') { ball = freshBall(); updateControls(); } }
+function endObjectDrag() {
+  const d=drag;if(!d)return;drag=null;
+  if(d.objects&&sculptor.setObjects(d.objects))saveSculpt();boardChanged();
+}
+function changeObjects(next,sel) {
+  if(!sculptor.setObjects(next))return false;selected=sel;saveSculpt();boardChanged();return true;
+}
+// Handles are grabbed within about 24 CSS px, whatever the screen, and never less than 12 mm of board.
+const handleReach=()=>Math.max(.012,24*renderer.dpr/renderer.scale);
+// Adds a new object at the board centre, or at the nearest free place on a spiral: one the
+// rules accept that does not cover another object of the same kind.
+function overlapsSame(type,o){
+  const list=sculptor.objects[LISTS[type]];
+  if(type==='hole'||type==='patch')return list.some(q=>Math.hypot(o.x-q.x,o.y-q.y)<(o.r??o.rx)+(q.r??q.rx)+.005);
+  return movableWalls(sculptor.objects).some(i=>[...o.points,[(o.points[0][0]+o.points.at(-1)[0])/2,(o.points[0][1]+o.points.at(-1)[1])/2]].some(([x,y])=>wallDistance(sculptor.objects.walls[i],x,y)<.01));
+}
+function addObject(kind) {
+  endObjectDrag();const n=NEW_OBJECTS[kind];if(!n)return;const objects=sculptor.objects,index=objects[LISTS[n.type]].length,W=sculptor.level.width,H=sculptor.level.height;
+  const count=n.type==='wall'?movableWalls(objects).length:index;if(count>=OBJECT_RULES.count[LISTS[n.type]]){$('sculptStatus').textContent='The board is full: remove something first.';return;}
+  for(let k=0;k<600;k++){const a=k*2.39996,r=.005*Math.sqrt(k),o=n.make(snap(W/2+r*Math.cos(a)),snap(H/2+r*Math.sin(a)));if(!overlapsSame(n.type,o)&&changeObjects(withObject(objects,n.type,index,o),{type:n.type,index}))return;}
+  $('sculptStatus').textContent='There is no free place for it. Move or remove something first.';
+}
+function deleteSelected() {
+  endObjectDrag();if(!deletable(selected))return;const sel=selected;changeObjects(withObject(sculptor.objects,sel.type,sel.index,null),null);
 }
 function leaveSculpt() { if (phase !== 'build') return; endStroke(); saveSculpt(); restart(); $('play').focus({preventScroll:true}); }
 function endStroke() {
-  endWallDrag();
+  endObjectDrag();
   if (brushPointer !== null && lastPointerType !== 'mouse') brushAt = null;
   brushPointer = null; if (!sculptor.stroke) return;
   sculptUpdate(performance.now(), Infinity);
@@ -132,7 +168,10 @@ function endStroke() {
 // The active stroke keeps the tool and size it started with.
 function brushChoice() { return sculptor.stroke ?? { tool: sculptTool, size: sculptSize }; }
 function sculptStatus(limited = false) {
-  if (sculptTool === 'walls' && !sculptor.stroke) { $('sculptStatus').textContent = 'Drag a wall to move it; drag its round handle to turn it. The border stays.'; return; }
+  if (sculptTool === 'move' && !sculptor.stroke) {
+    const handle = selected && selected.type !== 'start' ? (selected.type === 'wall' ? '; drag its round handle to turn or stretch it' : '; drag its round handle to resize it') : '';
+    $('sculptStatus').textContent = selected ? `${NAMES[selected.type][0].toUpperCase()+NAMES[selected.type].slice(1)}: drag to move it${handle}.` : 'Press on an object to move it. Add walls, holes, sand or resin from the menu.'; return;
+  }
   const {tool,size}=brushChoice(),depth=(flatLimit(SCULPT.sizes[size],tool)*layoutFor(material).scale*1000).toFixed(1);
   $('sculptStatus').textContent = limited ? 'At the limit: slopes stay below 14.6° and crests stay rounded.' : `${tool==='dig'?'Dig':'Pile'}, ${SIZE_NAMES[size]}: up to ${depth} mm on level ground. Hold deepens; drag ploughs.`;
 }
@@ -253,10 +292,11 @@ for(const name of ['pointerup','pointercancel','lostpointercapture'])pad.addEven
 canvas.addEventListener('pointerdown',e=>{
   lastPointerType=e.pointerType;if(phase!=='build'||brushPointer!==null||e.button>0)return;e.preventDefault();
   const p=renderer.toBoard(e.clientX,e.clientY);
-  if(sculptTool==='walls'){
-    const pick=pickWall(p);if(!pick){$('sculptStatus').textContent='Press on the low wall or the pocket wall, or on a round handle.';return;}
+  if(sculptTool==='move'){
+    const pick=pickObject(sculptor.objects,p,{selected,reach:handleReach()});selected=pick&&{type:pick.type,index:pick.index};updateControls();
+    if(!pick){$('sculptStatus').textContent='Press on an object, or on its round handle. The border stays.';return;}
     brushPointer=e.pointerId;canvas.setPointerCapture(e.pointerId);brushAt=null;
-    wallDrag={index:pick.index,mode:pick.mode,p0:p,start:sculptor.poses.get(pick.index)??{dx:0,dy:0,a:0},pose:null,invalid:false};return;
+    drag={type:pick.type,index:pick.index,mode:pick.mode,p0:p,start:objectAt(sculptor.objects,pick.type,pick.index),objects:null,invalid:false};return;
   }
   brushPointer=e.pointerId;canvas.setPointerCapture(e.pointerId);brushAt=p;
   sculptor.begin(sculptTool,sculptSize,brushAt.x,brushAt.y);strokeStart=performance.now();strokeTicks=0;
@@ -264,8 +304,8 @@ canvas.addEventListener('pointerdown',e=>{
 canvas.addEventListener('pointermove',e=>{
   if(phase!=='build')return;lastPointerType=e.pointerType;const p=renderer.toBoard(e.clientX,e.clientY);
   // A wall can't be dragged under the toolbar, so the point held stays reachable.
-  if(e.pointerId===brushPointer){if(wallDrag){const bar=$('sculptBar').getBoundingClientRect();if(!(e.clientX>=bar.left&&e.clientX<=bar.right&&e.clientY>=bar.top&&e.clientY<=bar.bottom))dragWall(p);}else{brushAt=p;sculptor.move(p.x,p.y);}}
-  else if(brushPointer===null&&e.pointerType==='mouse'&&sculptTool!=='walls')brushAt=p;
+  if(e.pointerId===brushPointer){if(drag){const bar=$('sculptBar').getBoundingClientRect();if(!(e.clientX>=bar.left&&e.clientX<=bar.right&&e.clientY>=bar.top&&e.clientY<=bar.bottom))dragObject(p);}else{brushAt=p;sculptor.move(p.x,p.y);}}
+  else if(brushPointer===null&&e.pointerType==='mouse'&&sculptTool!=='move')brushAt=p;
 });
 for(const name of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(name,e=>{if(e.pointerId===brushPointer)endStroke();});
 canvas.addEventListener('pointerleave',e=>{if(brushPointer===null&&e.pointerType==='mouse')brushAt=null;});
@@ -278,6 +318,7 @@ window.addEventListener('keydown',e=>{
     if(e.key==='Escape'||e.key==='Enter'&&e.target.tagName!=='BUTTON'){e.preventDefault();leaveSculpt();return;}
     if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&e.key.toLowerCase()==='z'){e.preventDefault();$('sculptUndo').click();return;}
     if(['1','2','3'].includes(e.key)){sculptSize='SML'[e.key-1];updateControls();return;}
+    if((e.key==='Delete'||e.key==='Backspace')&&sculptTool==='move'){e.preventDefault();deleteSelected();return;}
   }
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d'].includes(e.key)){e.preventDefault();if(mode==='touch')keys.add(e.key);}
   if(e.code==='Space'&&e.target.tagName!=='BUTTON'){e.preventDefault();if(!e.repeat){sound.unlock();togglePlay();}}
@@ -287,10 +328,16 @@ document.addEventListener('touchmove',e=>{if(!e.target.closest('dialog, .control
 $('pauseButton').addEventListener('click',()=>{pause();$('play').focus({preventScroll:true});});
 $('play').addEventListener('click',()=>{sound.unlock();togglePlay();});$('restart').addEventListener('click',restart);
 $('sculpt').addEventListener('click',()=>{sound.unlock();enterSculpt();});$('sculptDone').addEventListener('click',leaveSculpt);
-for(const [id,tool] of SCULPT_TOOLS)$(id).addEventListener('click',()=>{sculptTool=tool;if(tool==='walls')brushAt=null;updateControls();});
+for(const [id,tool] of SCULPT_TOOLS)$(id).addEventListener('click',()=>{sculptTool=tool;if(tool==='move')brushAt=null;updateControls();});
+// Add opens a row of buttons, one per kind; choosing one adds it and closes the row.
+$('addObject').addEventListener('click',()=>{const menu=$('addMenu');menu.hidden=!menu.hidden;$('addObject').setAttribute('aria-expanded',String(!menu.hidden));});
+for(const button of document.querySelectorAll('#addMenu [data-kind]'))button.addEventListener('click',()=>{$('addMenu').hidden=true;$('addObject').setAttribute('aria-expanded','false');addObject(button.dataset.kind);});
+// On a phone in portrait the toolbar covers one end of the board: ⇅ moves it to the other.
+$('sculptFlip').addEventListener('click',()=>$('sculptBar').classList.toggle('top'));$('deleteObject').addEventListener('click',deleteSelected);
+$('boardChoice').addEventListener('change',e=>setBoard(e.target.value));
 $('sculptSize').addEventListener('click',()=>{sculptSize={S:'M',M:'L',L:'S'}[sculptSize];updateControls();});
 // Undo and Reset may change terrain, walls or both; redraw only what changed.
-function afterHistory(change){const version=sculptor.version;if(!change())return;if(sculptor.version!==version)renderer.terrainChanged();renderer.setLevel(sculptor.currentLevel());saveSculpt();}
+function afterHistory(change){const version=sculptor.version;if(!change())return;selected=null;if(sculptor.version!==version)renderer.terrainChanged();boardChanged();saveSculpt();}
 $('sculptUndo').addEventListener('click',()=>{endStroke();afterHistory(()=>sculptor.undo());updateControls();});
 $('sculptReset').addEventListener('click',()=>{endStroke();afterHistory(()=>sculptor.reset());updateControls();});
 $('touchButton').addEventListener('click',()=>setTouch());$('tiltButton').addEventListener('click',enableTilt);$('calibrate').addEventListener('click',calibrate);
@@ -304,7 +351,7 @@ $('motionMode').addEventListener('change',e=>setMotion(e.target.value));
 $('motionQuick').addEventListener('click',()=>setMotion(motionMode==='full'?'tilt':'full'));
 $('tiltBudget').addEventListener('input',e=>{tiltBudget=Number(e.target.value);$('tiltBudgetValue').textContent=tiltBudget+'°';ball.tiltBudget=tiltBudget;});
 $('motionOverlay').addEventListener('change',e=>{motionOverlay=e.target.checked;updateControls();});
-$('exportMotion').addEventListener('click',()=>{const report={...motion.report(),recordedAt:new Date().toISOString(),browser:navigator.userAgent,scenario:$('motionScenario').value,orientation,neutral,tiltBudget,motionMode,inputMode:mode,ball:{material,size:ballSize,radius:ball.r,mass:ball.m},movedWalls:sculptor.saveWalls().walls,frameTimeOrigin:recordStart,frameRecords:rows,phoneValidation:'pending user review; no hardware range inference'},url=URL.createObjectURL(new Blob([JSON.stringify(report,null,2)],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download='marble-relief-motion.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
+$('exportMotion').addEventListener('click',()=>{const report={...motion.report(),recordedAt:new Date().toISOString(),browser:navigator.userAgent,scenario:$('motionScenario').value,orientation,neutral,tiltBudget,motionMode,inputMode:mode,ball:{material,size:ballSize,radius:ball.r,mass:ball.m},board,objects:sculptor.objectsChanged?sculptor.objects:null,frameTimeOrigin:recordStart,frameRecords:rows,phoneValidation:'pending user review; no hardware range inference'},url=URL.createObjectURL(new Blob([JSON.stringify(report,null,2)],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download='marble-relief-motion.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
 $('clearMotion').addEventListener('click',()=>{motion.clearRecording();});
 $('ballMaterial').addEventListener('change',e=>{material=e.target.value;restart();});
 $('ballSize').addEventListener('input',e=>{ballSize=Math.min(BALL_SIZES.max,Math.max(BALL_SIZES.min,Math.round(Number(e.target.value)*10)/10));restart();});
@@ -336,7 +383,7 @@ $('hapticsEnabled').addEventListener('change',e=>{sound.haptics=e.target.checked
 window.matchMedia('(display-mode: standalone)').addEventListener('change',updateInstallHint);updateInstallHint();
 $('clearLog').addEventListener('click',()=>{rows=[];graph=[];recordStart=performance.now();});
 $('exportLog').addEventListener('click',()=>{
-  const meta=[`# Marble Lab; model=6; terrain=relief; sculpt_strokes=${sculptor.strokes.length}; moved_walls=${JSON.stringify(sculptor.saveWalls().walls).replace(/,/g,' ')}; ball_size=${ballSize}; ball_radius_m=${ball.r}; ball_mass_kg=${ball.m}; motion=${motionMode}; tilt_budget=${tiltBudget}; open_edges=${openEdges}; tau_ms=${tau*1000}; fixed_step_s=${STEP}`,`# neutral_beta=${neutral?.beta??''}; neutral_gamma=${neutral?.gamma??''}; browser=${navigator.userAgent}`, '# JS timestamps are not end-to-end sensor latency; ball variables are simulated SI values.'];
+  const meta=[`# Marble Lab; model=6; terrain=${board==='flat'?'flat':'relief'}; sculpt_strokes=${sculptor.strokes.length}; board=${board}; objects_edited=${sculptor.objectsChanged}; walls=${sculptor.objects.walls.length}; holes=${sculptor.objects.holes.length}; patches=${sculptor.objects.patches.length}; ball_size=${ballSize}; ball_radius_m=${ball.r}; ball_mass_kg=${ball.m}; motion=${motionMode}; tilt_budget=${tiltBudget}; open_edges=${openEdges}; tau_ms=${tau*1000}; fixed_step_s=${STEP}`,`# neutral_beta=${neutral?.beta??''}; neutral_gamma=${neutral?.gamma??''}; browser=${navigator.userAgent}`, '# JS timestamps are not end-to-end sensor latency; ball variables are simulated SI values.'];
   const csv=[...meta,'kind,received_or_frame_ms,event_timestamp_ms,raw_x_deg,raw_y_deg,filtered_x_deg,filtered_y_deg,state,input,screen_angle_deg,ball_material,surface,wall_material,ball_radius_m,x_m,y_m,z_m,vx_m_s,vy_m_s,vz_m_s,omega_x_rad_s,omega_y_rad_s,omega_z_rad_s,kinetic_energy_J,slip_m_s,terrain_height_m,normal_load_N,goal_dwell_s,contact_regime',...rows.map(r=>r.join(','))].join('\n');
   const url=URL.createObjectURL(new Blob([csv],{type:'text/csv'})),a=document.createElement('a');a.href=url;a.download='marble-lab-timing.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 });
@@ -361,7 +408,7 @@ function diagnostics(now) {
   const avg=recentDts.length?recentDts.reduce((a,b)=>a+b,0)/recentDts.length:0;
   const a=motion.last,c=motion.convention;
   const values=[['Motion mode',motionMode],['Gravity sign',GRAVITY_SIGN[c.verdict]],['Rest residual',c.residual===null?'—':`${c.residual.toFixed(3)} m/s² (${c.count} samples)`],['Acceleration X / Y / up',`${a.x.toFixed(2)} / ${a.y.toFixed(2)} / ${a.z.toFixed(2)} m/s²`],['Delivered motion rate',motion.rate.toFixed(1)+' Hz'],['Observed axis peaks',motion.peak.map(v=>(v/9.81).toFixed(2)+'g').join(' / ')],['Hardware range','Not exposed; peaks are lower bounds'],['Clipping',motion.clipSuspected?'Suspected flat top':'Not observed'],['3g caps',String(motion.capCount)],['Pose age at sample',motion.poseAge.toFixed(1)+' ms'],['Input', mode],['Permission',permission],['Motion permission',motionPermission],['Neutral β / γ',neutral?`${neutral.beta.toFixed(1)}° / ${neutral.gamma.toFixed(1)}°`:'Not calibrated'],['Screen rotation',orientation+'°'],['Orientation event rate',avg?(1000/avg).toFixed(1)+' Hz*':'No readings'],['Latest event interval',eventDt?eventDt.toFixed(1)+' ms':'—'],['Event delivery delay',latest?delivery.toFixed(1)+' ms':'—'],['Latest event → frame',latest?Math.max(0,now-latest.stamp).toFixed(1)+' ms':'—'],['Frame interval',frameDt.toFixed(1)+' ms'],['Filter time constant',(tau*1000)+' ms'],['Physics step',(STEP*1000).toFixed(2)+' ms'],['Canvas pixels',`${canvas.width} × ${canvas.height}`],['Pixel ratio',String(renderer.dpr)],['Cached scene builds',String(renderer.rebuilds)],['Audio',sound.ctx?.state??'Awaiting tap'],['Rotation-rate data',gyroFields],['Raw X / Y',`${raw.x.toFixed(2)}° / ${raw.y.toFixed(2)}°`],['Filtered X / Y',`${smooth.x.toFixed(2)}° / ${smooth.y.toFixed(2)}°`],['Ball speed',Math.hypot(ball.vx,ball.vy).toFixed(3)+' m/s'],['Captured timing records',String(rows.length)]];
-  values.push(['Sculpt strokes',String(sculptor.strokes.length)],['Moved walls',String(sculptor.poses.size)],['Ball size',`×${ballSize}`],['Edited terrain cells',String(sculptor.edits.cells.size)]);
+  values.push(['Sculpt strokes',String(sculptor.strokes.length)],['Board',`${BOARDS[board].name.toLowerCase()}${sculptor.objectsChanged?', objects edited':''}`],['Walls / holes / patches',`${sculptor.objects.walls.length} / ${sculptor.objects.holes.length} / ${sculptor.objects.patches.length}`],['Ball size',`×${ballSize}`],['Edited terrain cells',String(sculptor.edits.cells.size)]);
   values.push(['Ball / surface',`${BALLS[material].name} / ${SURFACES[surface].name}`],['Mass / diameter',`${(ball.m*1000).toFixed(2)} g / ${mm(ball.r)} mm`],['Walls',WALL_MATERIALS[wallMaterial].name],['Board dimensions',`${layoutFor(material).width.toFixed(3)} × ${layoutFor(material).height.toFixed(3)} m`],['Inertia / mR²',BALLS[material].inertiaRatio.toFixed(4)],['Contact regime',ball.regime],['Slip speed',(ball.slip*1000).toFixed(1)+' mm/s'],['Spin magnitude',Math.hypot(ball.wx,ball.wy,ball.wz).toFixed(1)+' rad/s'],['Height above support',(Math.max(0,ball.supportGap)*1000).toFixed(2)+' mm'],['Terrain height',(ball.groundHeight*1000).toFixed(3)+' mm'],['Normal load / mg',(ball.normalLoad/(ball.m*9.81)).toFixed(3)],['Goal hold',ball.dwell.toFixed(2)+' / 3 s'],['Edges',openEdges?'Open':'Walled'],['Kinetic energy',(kineticEnergy(ball)*1000).toFixed(3)+' mJ']);
   if(surface==='sand')values.push(['Estimated sinkage',(granularState(ball,ball.normalLoad/(ball.m*9.81)).sinkage*1000).toFixed(2)+' mm']);
   $('metrics').replaceChildren(...values.flatMap(([label,value])=>{const a=document.createElement('dt'),b=document.createElement('dd');a.textContent=label;b.textContent=value;return[a,b];}));
@@ -380,8 +427,8 @@ function frame(now) {
   if(phase==='falling'&&now-fallStarted>=RESTART_MS){ball=freshBall();fallHole=null;phase='running';clock.reset();message('','');updateControls();}
   if(phase==='running'||phase==='falling')sound.impacts(contacts,startSimulationTime);sound.update(ball,phase==='running');
   if(phase==='build'&&sculptor.stroke)sculptUpdate(now);
-  const choice=brushChoice(),walls=sculptTool==='walls'&&!sculptor.stroke,level=renderer.level;
-  const sculpt=phase!=='build'?null:walls?{zones:wallClearances(level).map(z=>({x:z.x,y:z.y,r0:z.r})),brush:null,walls:{handles:movableWalls(level).map(i=>handleOf(level.walls[i])),active:wallDrag?level.walls[wallDrag.index].points:null,invalid:!!wallDrag?.invalid}}
+  const choice=brushChoice(),moving=sculptTool==='move'&&!sculptor.stroke,shown=drag?.objects??sculptor.objects,picked=selected&&objectAt(shown,selected.type,selected.index);
+  const sculpt=phase!=='build'?null:moving?{zones:clearances(shown).map(z=>({x:z.x,y:z.y,r0:z.r})),brush:null,selection:picked&&{type:selected.type,object:picked,handle:handleOf(selected.type,picked),invalid:!!drag?.invalid}}
     :{zones:sculptor.zones,brush:brushAt&&{...brushAt,R:SCULPT.sizes[choice.size],tool:choice.tool,limited:!!sculptor.stroke&&sculptor.lastAlpha<1}};
   renderer.draw(ball,smooth,{phase,now,fallStarted,fallHole,restartMs:RESTART_MS,running:phase==='running',sculpt});record('frame',now,latest?.stamp??'');graph.push({t:now,rx:raw.x,ry:raw.y,fx:smooth.x,fy:smooth.y});while(graph.length&&graph[0].t<now-5500)graph.shift();
   if(now-lastUI>80){lastUI=now;$('time').textContent=clockText(elapsed);$('falls').textContent=String(falls);$('tiltMagnitude').textContent=Math.min(tiltBudget,Math.hypot(smooth.x,smooth.y)).toFixed(1);
@@ -394,13 +441,13 @@ function frame(now) {
   }
   requestAnimationFrame(frame);
 }
-if(sculptor.edited)message('Find your balance.','Edited board: the route bot has not checked it.');
+boardMessage();
 updateControls();requestAnimationFrame(frame);
 
 // Optional page-scoped agent interface, using exactly the visible game actions.
 if(document.modelContext?.registerTool) {
   const lifecycle=new AbortController();window.addEventListener('pagehide',()=>lifecycle.abort(),{once:true});
-  const state=()=>({phase,ballSize,sculpt:{edited:sculptor.edited,strokes:sculptor.strokes.length,movedWalls:sculptor.poses.size},input:mode,motionMode,tiltBudget,material,surface,wallMaterial,openEdges,goalDwell:ball.dwell,board:{width:layoutFor(material).width,height:layoutFor(material).height},timeSeconds:Number(elapsed.toFixed(2)),falls,calibrated:!!neutral,ball:{x:ball.x,y:ball.y,z:ball.z,vx:ball.vx,vy:ball.vy,vz:ball.vz,wx:ball.wx,wy:ball.wy,wz:ball.wz,regime:ball.regime}});
+  const state=()=>({phase,ballSize,boardId:board,sculpt:{edited:sculptor.edited,strokes:sculptor.strokes.length,objectsEdited:sculptor.objectsChanged},input:mode,motionMode,tiltBudget,material,surface,wallMaterial,openEdges,goalDwell:ball.dwell,board:{width:layoutFor(material).width,height:layoutFor(material).height},timeSeconds:Number(elapsed.toFixed(2)),falls,calibrated:!!neutral,ball:{x:ball.x,y:ball.y,z:ball.z,vx:ball.vx,vy:ball.vy,vz:ball.vz,wx:ball.wx,wy:ball.wy,wz:ball.wz,regime:ball.regime}});
   const tools=[
     {name:'read_marble_game',description:'Read the current maze state and selected controls.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true},execute(input){if(input&&Object.keys(input).length)throw new Error('No arguments expected.');return state();}},
     {name:'control_marble_game',description:'Start, pause, resume, or restart the marble maze using its visible controls. Does not request sensor permission or steer.',inputSchema:{type:'object',properties:{action:{type:'string',enum:['start','pause','resume','restart']}},required:['action'],additionalProperties:false},annotations:{readOnlyHint:false},execute(input){if(!input||Object.keys(input).some(k=>k!=='action')||!['start','pause','resume','restart'].includes(input.action))throw new Error('Use start, pause, resume, or restart.');if(input.action==='restart'){if(phase==='build')leaveSculpt();else restart();}else if(input.action==='pause')pause();else{if(phase==='build')throw new Error('Leave Sculpt with Done first.');if(mode==='tilt'&&!neutral)throw new Error('Calibrate tilt using the on-screen button first.');if(phase==='falling')throw new Error('Wait for the restart.');if(phase!=='running')togglePlay();}return state();}}

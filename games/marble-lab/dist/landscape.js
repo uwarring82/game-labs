@@ -67,6 +67,16 @@ export function levelFromLandscape(land,withDrainage=true){
 }
 let selected;
 export function reliefLevel(){return selected??=(levelFromLandscape(makeLandscape()));}
+// The open board: the same size as the relief, perfectly flat, with only the border, a
+// start and a goal ring. The player builds everything else (sculpt.js, objects.js). It
+// has no goal summit, so no per-ball goal correction and no keep-outs.
+let open;
+export function flatLevel(){
+ if(open)return open;const {width:w,height:h,radius:r}=RELIEF;
+ const walls=[poly([[.003,.003],[w-.003,.003]],6*r,'border'),poly([[w-.003,.003],[w-.003,h-.003]],6*r,'border'),poly([[w-.003,h-.003],[.003,h-.003]],6*r,'border'),poly([[.003,h-.003],[.003,.003]],6*r,'border')];
+ const field=new Heightfield(()=>FLAT,w,h,RELIEF.grid);
+ return open={seed:'flat',flat:true,name:'Open board',field,terrain:field,width:w,height:h,scale:1,walls,holes:[],patches:[],start:{x:.041,y:2/30},goal:{x:.235,y:.568,r:.015}};
+}
 const adjustedFields=new WeakMap();
 // A copy of field that shares every cell except those within reach of the goal, which
 // are rebuilt with the correction added: about 2 MB instead of a full 11 MB field.
@@ -81,10 +91,12 @@ function patchedField(field,correction,goal,reach){
 // patched field that is not cached here: the relief evidence covers nominal sizes only,
 // whose fields are built exactly as before.
 export function scaledLevel(base,scale,k=.4,r=RELIEF.radius*scale,shared=false){
- const targetRc=9.81*RELIEF.goalTime**2/(1+k)-r,delta=scale/targetRc-1/base.goalRadius;
- const correction=numericalField((x,y)=>{const d=Math.hypot(x-base.goal.x,y-base.goal.y);return-.5*delta*d*d*(1-smooth((d-.018)/.065));});
+ // The correction is centred on the relief's summit, which stays put when the goal ring is
+ // moved (base.summit on an edited copy). A board without a summit gets none.
+ const summit=base.summit??base.goal,targetRc=9.81*RELIEF.goalTime**2/(1+k)-r,delta=base.goalRadius===undefined?0:scale/targetRc-1/base.goalRadius;
+ const correction=numericalField((x,y)=>{const d=Math.hypot(x-summit.x,y-summit.y);return-.5*delta*d*d*(1-smooth((d-.018)/.065));});
  let cache=adjustedFields.get(base.field);if(!cache){cache=new Map();adjustedFields.set(base.field,cache);}const key=scale+'/'+k+'/'+r;
- let adjusted=cache.get(key);if(!adjusted&&shared&&Math.abs(delta)>=1e-12)adjusted=patchedField(base.field,correction,base.goal,.018+.065+.004);
+ let adjusted=cache.get(key);if(!adjusted&&shared&&Math.abs(delta)>=1e-12)adjusted=patchedField(base.field,correction,summit,.018+.065+.004);
  if(!adjusted)adjusted=Math.abs(delta)<1e-12?base.field:new Heightfield((x,y)=>{const p=base.field.sample(x,y),q=correction(x,y);return{h:p.h+q.h,dx:p.dx+q.dx,dy:p.dy+q.dy,dxy:p.dxy+q.dxy};},base.width,base.height,RELIEF.grid);
  if(!shared)cache.set(key,adjusted);
  const scaled=p=>({h:p.h*scale,dx:p.dx,dy:p.dy,dxx:p.dxx/scale,dxy:p.dxy/scale,dyy:p.dyy/scale});
@@ -95,5 +107,5 @@ export function scaledLevel(base,scale,k=.4,r=RELIEF.radius*scale,shared=false){
   if(!e?.cells.size)return scaled(p);const q=e.sample(u,v);if(q===FLAT)return scaled(p);
   return scaled({h:p.h+q.h,dx:p.dx+q.dx,dy:p.dy+q.dy,dxx:p.dxx+q.dxx,dxy:p.dxy+q.dxy,dyy:p.dyy+q.dyy});}};
  const obj=o=>Object.fromEntries(Object.entries(o).map(([k,v])=>[k,typeof v==='number'?v*scale:v]));
- return{...base,scale,width:base.width*scale,height:base.height*scale,start:obj(base.start),goal:obj(base.goal),terrain:field,pristine,walls:base.walls.map(w=>({...w,height:w.height*scale,points:w.points.map(p=>p.map(v=>v*scale))})),holes:base.holes.map(obj),jumpSpots:base.jumpSpots.map(obj),patches:base.patches.map(obj),route:base.route.map(p=>({...p,x:p.x*scale,y:p.y*scale,speed:p.speed? p.speed*Math.sqrt(scale):undefined}))};
+ return{...base,scale,width:base.width*scale,height:base.height*scale,start:obj(base.start),goal:obj(base.goal),terrain:field,pristine,walls:base.walls.map(w=>({...w,height:w.height*scale,points:w.points.map(p=>p.map(v=>v*scale))})),holes:base.holes.map(obj),jumpSpots:(base.jumpSpots??[]).map(obj),patches:base.patches.map(obj),route:(base.route??[]).map(p=>({...p,x:p.x*scale,y:p.y*scale,speed:p.speed? p.speed*Math.sqrt(scale):undefined}))};
 }
