@@ -42,3 +42,9 @@ The finite-stop calculation was corrected: a 0.4 m/s flick followed by a uniform
 ## Repository preparation — 26 September 2026
 
 Added this readable development record, design decisions, acceptance checklist and contribution instructions. Game code and the published Site are unchanged by this documentation step. A GitHub repository has not yet been created at preparation time.
+
+## Game Labs — 26 September 2026
+
+Moved into the public Game Labs repository at `games/marble-lab/`. The seven earlier commits were imported unchanged, so the commit IDs above still resolve. GitHub Pages now publishes the current build and each milestone above as a playable development stage, extracted from these commits (`stages.json`).
+
+The web-app manifest's `id`, `start_url` and `scope` are now `./` instead of `/`, so the game also runs under a subpath such as GitHub Pages. At a site root the two are equivalent. No game code changed. Both physical-phone measurements remain pending.

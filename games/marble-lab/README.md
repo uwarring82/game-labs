@@ -2,7 +2,7 @@
 
 Owner: Ulrich Warring. [Development history](CHANGELOG.md) · [Design decisions](docs/design-decisions.md) · [Remaining acceptance gates](docs/acceptance.md) · [Working with this repository](CONTRIBUTING.md)
 
-Private mobile browser game, static HTML/CSS/ES modules, no runtime dependencies or sensor uploads. The task card is implemented as a draft. U. Warring's endorsement and both physical-phone acceptance runs remain outstanding.
+Mobile browser game, static HTML/CSS/ES modules, no runtime dependencies or sensor uploads. Part of [Game Labs](../../README.md): the current build and every development stage are playable at https://uwarring82.github.io/game-labs/marble-lab/. The task card is implemented as a draft. U. Warring's endorsement and both physical-phone acceptance runs remain outstanding.
 
 ## Play
 
