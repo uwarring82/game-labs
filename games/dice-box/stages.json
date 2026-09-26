@@ -11,6 +11,14 @@
       "date": "2026-09-26T10:42:00+02:00",
       "title": "Prototype v0.1",
       "summary": "Up to five 16 mm dice on felt under glass. The phone's measured acceleration and rotation drive the box frame directly, with no gesture detection. Rigid-cube contact engine at 480 Hz, an in-page fairness test, and drag-to-shake on a computer."
+    },
+    {
+      "id": "02-realistic-loaded-glass",
+      "commit": "442729e343593c176ac2dadf87ebee9bf4cbc9d6",
+      "path": "games/dice-box",
+      "date": "2026-09-26T11:55:53+02:00",
+      "title": "Realistic dice, a loaded die, breakable glass",
+      "summary": "Drilled, painted pips and one colour per die, shown again in the readout. Setup loads one die with a hidden plate, from fair to heavily loaded, and sets the acceleration at which the glass box shatters and spills the dice."
     }
   ]
 }

@@ -3,6 +3,7 @@
 | Date / time (Berlin) | Source commit | Milestone |
 | --- | --- | --- |
 | 26 September 2026, 10:42 | `bfceb7fa619398e0e2cbbd0941dd58d1819013f9` | Prototype v0.1 |
+| 26 September 2026, 11:55 | `442729e343593c176ac2dadf87ebee9bf4cbc9d6` | Realistic dice, a loaded die, breakable glass |
 
 ## Prototype v0.1 — 25–26 September 2026
 
