@@ -1,7 +1,7 @@
 {
   "title": "Marble Lab",
   "tagline": "Tilt the phone and a physically modelled ball rolls, slips, bounces and falls through a landscape.",
-  "status": "Relief v0.1: draft, not yet endorsed. Automated checks pass; real-phone validation is pending.",
+  "status": "Relief v0.1 with Sculpt v0.1: drafts, not yet endorsed. Automated checks pass; real-phone validation is pending.",
   "source": "dist",
   "stages": [
     {

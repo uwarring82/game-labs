@@ -26,7 +26,8 @@ test('inclined contact preserves solid/shell acceleration without a hardcoded 5/
  const b=place(newBall(),f,.1,.2);simulate(b,.5,f,{}, {x:Math.atan(slope)*180/Math.PI,y:0});assert.ok(Math.hypot(b.vx,b.vy,b.vz)<1e-10);
 });
 test('curvature load has the correct dip/crest sign and finite-radius correction',()=>{
- for(const k of [10,-10]){const f=parabola(k),b=place(newBall(),f,.15,.2,.4),n=normalAcceleration(b,supportAt(b,f),gravity({x:0,y:0}));assert.ok(Math.abs(n-(G+k*.4**2/(1-b.r*k)))<1e-10);}
+ // Includes the curvatures Sculpt allows: hollows to 50 1/m and crests to 20 1/m.
+ for(const k of [10,-10,50,-20,100]){const f=parabola(k),b=place(newBall(),f,.15,.2,.4),n=normalAcceleration(b,supportAt(b,f),gravity({x:0,y:0}));assert.ok(Math.abs(n-(G+k*.4**2/(1-b.r*k)))<1e-10);}
 });
 test('an under-speed climb turns back, while energy above the barrier crosses',()=>{
  const feature={x:.15,y:.2,rx:.07,ry:.07,height:.002},f={sample:(x,y)=>cap(feature,x,y)},threshold=Math.sqrt(2*G*feature.height/1.4);

@@ -15,6 +15,14 @@ export function cap(f,x,y){
  return {h:a*q**3,dx:3*a*q*q*qx,dy:3*a*q*q*qy,dxx:6*a*q*qx*qx-6*a*q*q/f.rx**2,dxy:6*a*q*qx*qy,dyy:6*a*q*qy*qy-6*a*q*q/f.ry**2};
 }
 const M=[[1,0,0,0],[0,0,1,0],[-3,3,-2,-1],[2,-2,1,1]];
+// Coefficients of one cell from its corner nodes {h,dx,dy,dxy}; null when all are zero.
+export function hermiteCell(a,b,c,d,sx,sy){
+ const f=[[a.h,c.h,a.dy*sy,c.dy*sy],[b.h,d.h,b.dy*sy,d.dy*sy],[a.dx*sx,c.dx*sx,a.dxy*sx*sy,c.dxy*sx*sy],[b.dx*sx,d.dx*sx,b.dxy*sx*sy,d.dxy*sx*sy]];
+ if(!f.some(row=>row.some(v=>v!==0)))return null;
+ const coefficients=new Float64Array(16);
+ for(let x=0;x<4;x++)for(let y=0;y<4;y++)for(let k=0;k<4;k++)for(let l=0;l<4;l++)coefficients[4*x+y]+=M[x][k]*f[k][l]*M[y][l];
+ return coefficients;
+}
 // Bicubic Hermite cells share height and both first derivatives at every edge.
 // Gradient and Hessian are derivatives of the SAME interpolated potential.
 export class Heightfield{
@@ -22,18 +30,19 @@ export class Heightfield{
   this.width=width;this.height=height;this.nx=Math.ceil(width/step);this.ny=Math.ceil(height/step);this.sx=width/this.nx;this.sy=height/this.ny;this.cells=new Map();
   const nodes=Array.from({length:this.ny+1},(_,j)=>Array.from({length:this.nx+1},(_,i)=>fn(i*this.sx,j*this.sy)));
   for(let j=0;j<this.ny;j++)for(let i=0;i<this.nx;i++){
-   const a=nodes[j][i],b=nodes[j][i+1],c=nodes[j+1][i],d=nodes[j+1][i+1],sx=this.sx,sy=this.sy;
-   const f=[[a.h,c.h,a.dy*sy,c.dy*sy],[b.h,d.h,b.dy*sy,d.dy*sy],[a.dx*sx,c.dx*sx,a.dxy*sx*sy,c.dxy*sx*sy],[b.dx*sx,d.dx*sx,b.dxy*sx*sy,d.dxy*sx*sy]];
-   if(!f.some(row=>row.some(v=>v!==0)))continue;
-   const coefficients=new Float64Array(16);
-   for(let x=0;x<4;x++)for(let y=0;y<4;y++)for(let k=0;k<4;k++)for(let l=0;l<4;l++)coefficients[4*x+y]+=M[x][k]*f[k][l]*M[y][l];
-   this.cells.set(j*this.nx+i,coefficients);
+   const coefficients=hermiteCell(nodes[j][i],nodes[j][i+1],nodes[j+1][i],nodes[j+1][i+1],this.sx,this.sy);
+   if(coefficients)this.cells.set(j*this.nx+i,coefficients);
   }
  }
  sample(x,y){
   if(x<0||y<0||x>this.width||y>this.height)return FLAT;
-  const i=Math.min(this.nx-1,Math.floor(x/this.sx)),j=Math.min(this.ny-1,Math.floor(y/this.sy)),c=this.cells.get(j*this.nx+i);if(!c)return FLAT;
-  const u=x/this.sx-i,v=y/this.sy-j;
+  const i=Math.min(this.nx-1,Math.floor(x/this.sx)),j=Math.min(this.ny-1,Math.floor(y/this.sy));
+  return this.sampleCell(i,j,x/this.sx-i,y/this.sy-j);
+ }
+ // Cell (i,j)'s own polynomial at local u,v in [0,1], edges included. The
+ // Hessian jumps across cell edges, so bound checks must sample each cell.
+ sampleCell(i,j,u,v){
+  const c=this.cells.get(j*this.nx+i);if(!c)return FLAT;
   let h=0,dx=0,dy=0,dxx=0,dxy=0,dyy=0;
   for(let k=3;k>=0;k--){const a=c[k*4],b=c[k*4+1],d=c[k*4+2],e=c[k*4+3],p=((e*v+d)*v+b)*v+a,pv=(3*e*v+2*d)*v+b;
    dxx=dxx*u+2*dx;dx=dx*u+h;h=h*u+p;dxy=dxy*u+dy;dy=dy*u+pv;dyy=dyy*u+6*e*v+2*d;

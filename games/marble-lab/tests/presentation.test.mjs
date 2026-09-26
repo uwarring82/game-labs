@@ -42,6 +42,30 @@ test('all material render paths run, surface textures cache, marks survive resiz
   const copies=r.marks.getContext('2d').stats.draws;rect={width:393,height:680};r.resize();assert.ok(r.marks.getContext('2d').stats.draws>copies);assert.equal(r.dpr,2);
  }finally{globalThis.document=oldDocument;globalThis.window=oldWindow;}
 });
+test('a sculpt edit redraws its rectangle and keeps the cached texture; the brush overlay draws',async()=>{
+ const {Sculptor,SCULPT}=await import('../dist/sculpt.js'),{reliefLevel}=await import('../dist/landscape.js');
+ const oldDocument=globalThis.document,oldWindow=globalThis.window;
+ globalThis.document={createElement:fakeCanvas};globalThis.window={devicePixelRatio:2};
+ const sculptor=new Sculptor(reliefLevel());
+ try{
+  const r=new Renderer(fakeCanvas(),{getBoundingClientRect:()=>({width:393,height:759})}),opts={phase:'build',now:10,fallStarted:0,fallHole:null,restartMs:800,running:false};
+  const b=newBall();r.draw(b,{x:0,y:0},opts);const builds=r.rebuilds,texture=r.texture.getContext('2d').stats.strokes,base=r.base.getContext('2d').stats.draws;
+  sculptor.begin('dig','M',.2,.13);let rect=null;for(let k=0;k<5;k++)rect=sculptor.tick()??rect;sculptor.end();assert.ok(rect&&rect.x1>rect.x0);
+  const puts=[],clips=[],arcs=[],W=.3,H=19/30;r.shade.getContext('2d').putImageData=(...a)=>puts.push(a);r.base.getContext('2d').rect=(...a)=>clips.push(a);r.canvas.getContext('2d').arc=(...a)=>arcs.push(a);
+  // Partial redraw: a sub-rectangle of the shading image and a device-pixel clip, both covering the edit.
+  r.terrainChanged(rect);const [,,,px,py,pw,ph]=puts.at(-1),[cx,cy,cw,ch]=clips.at(-1);
+  assert.ok(pw<r.shade.width&&ph<r.shade.height&&px<=rect.x0/W*r.shade.width&&px+pw>=rect.x1/W*r.shade.width&&py<=rect.y0/H*r.shade.height&&py+ph>=rect.y1/H*r.shade.height);
+  assert.ok(cw<r.base.width&&ch<r.base.height&&cx<=r.ox+rect.x0*r.scale&&cx+cw>=r.ox+rect.x1*r.scale&&cy<=r.oy+rect.y0*r.scale&&cy+ch>=r.oy+rect.y1*r.scale);
+  // Full redraw after undo/reset: the whole image, no clip.
+  r.terrainChanged();assert.deepEqual(puts.at(-1).slice(1),[0,0,0,0,r.shade.width,r.shade.height]);assert.equal(clips.length,1);
+  assert.equal(r.rebuilds,builds);assert.equal(r.texture.getContext('2d').stats.strokes,texture);assert.equal(r.base.getContext('2d').stats.draws,base+4);
+  r.draw(b,{x:0,y:0},{...opts,sculpt:{zones:sculptor.zones,brush:{x:.2,y:.13,R:SCULPT.sizes.M,tool:'dig',limited:true}}});
+  const radii=arcs.map(a=>a[2]);assert.ok(radii.includes(SCULPT.sizes.M)&&radii.some(v=>Math.abs(v-SCULPT.sizes.M/Math.sqrt(5))<1e-12));for(const z of sculptor.zones)assert.ok(radii.includes(z.r0));
+  r.canvas.getBoundingClientRect=()=>({left:0,top:0,width:r.canvas.width/r.dpr,height:r.canvas.height/r.dpr});
+  const corner=r.toBoard(r.ox/r.dpr,r.oy/r.dpr),centre=r.toBoard(r.canvas.width/r.dpr/2,r.canvas.height/r.dpr/2);
+  assert.ok(Math.abs(corner.x)<1e-9&&Math.abs(corner.y)<1e-9);assert.ok(Math.abs(centre.x-.15)<1e-9&&Math.abs(centre.y-19/60)<1e-9);
+ }finally{sculptor.reset();globalThis.document=oldDocument;globalThis.window=oldWindow;}
+});
 class Param{constructor(){this.value=0;this.calls=[];}setValueAtTime(v,t){this.calls.push([v,t]);}linearRampToValueAtTime(v,t){this.calls.push([v,t]);}exponentialRampToValueAtTime(v,t){this.calls.push([v,t]);}setTargetAtTime(v,t){this.calls.push([v,t]);}cancelScheduledValues(){} }
 class Node{constructor(){for(const k of ['gain','frequency','Q','threshold','knee','ratio','attack','release'])this[k]=new Param();this.starts=[];}connect(){}disconnect(){}start(t=0){this.starts.push(t);}stop(){} }
 class Context{constructor(){this.currentTime=10;this.state='suspended';this.sampleRate=8000;this.destination={};this.nodes=[];}node(){const n=new Node();this.nodes.push(n);return n;}createGain(){return this.node();}createDynamicsCompressor(){return this.node();}createBufferSource(){return this.node();}createBiquadFilter(){return this.node();}createOscillator(){return this.node();}createBuffer(c,n){return{getChannelData:()=>new Float32Array(n)};}resume(){this.state='running';return Promise.resolve();}suspend(){this.state='suspended';return Promise.resolve();}}

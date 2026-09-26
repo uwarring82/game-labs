@@ -74,7 +74,13 @@ export function scaledLevel(base,scale,k=.4,r=RELIEF.radius*scale){
  let cache=adjustedFields.get(base);if(!cache){cache=new Map();adjustedFields.set(base,cache);}const key=scale+'/'+k;
  let adjusted=cache.get(key);if(!adjusted)adjusted=Math.abs(delta)<1e-12?base.field:new Heightfield((x,y)=>{const p=base.field.sample(x,y),q=correction(x,y);return{h:p.h+q.h,dx:p.dx+q.dx,dy:p.dy+q.dy,dxy:p.dxy+q.dxy};},base.width,base.height,RELIEF.grid);
  cache.set(key,adjusted);
- const field={sample(x,y){const p=adjusted.sample(x/scale,y/scale);return{h:p.h*scale,dx:p.dx,dy:p.dy,dxx:p.dxx/scale,dxy:p.dxy/scale,dyy:p.dyy/scale};}};
+ const scaled=p=>({h:p.h*scale,dx:p.dx,dy:p.dy,dxx:p.dxx/scale,dxy:p.dxy/scale,dyy:p.dyy/scale});
+ const pristine={sample(x,y){return scaled(adjusted.sample(x/scale,y/scale));}};
+ // Player edits (sculpt.js) are node deltas in base coordinates, added to every
+ // ball's field at sample time. Without edits the arithmetic is unchanged.
+ const field={sample(x,y){const u=x/scale,v=y/scale,p=adjusted.sample(u,v),e=base.edits;
+  if(!e?.cells.size)return scaled(p);const q=e.sample(u,v);if(q===FLAT)return scaled(p);
+  return scaled({h:p.h+q.h,dx:p.dx+q.dx,dy:p.dy+q.dy,dxx:p.dxx+q.dxx,dxy:p.dxy+q.dxy,dyy:p.dyy+q.dyy});}};
  const obj=o=>Object.fromEntries(Object.entries(o).map(([k,v])=>[k,typeof v==='number'?v*scale:v]));
- return{...base,scale,width:base.width*scale,height:base.height*scale,start:obj(base.start),goal:obj(base.goal),terrain:field,walls:base.walls.map(w=>({...w,height:w.height*scale,points:w.points.map(p=>p.map(v=>v*scale))})),holes:base.holes.map(obj),jumpSpots:base.jumpSpots.map(obj),patches:base.patches.map(obj),route:base.route.map(p=>({...p,x:p.x*scale,y:p.y*scale,speed:p.speed? p.speed*Math.sqrt(scale):undefined}))};
+ return{...base,scale,width:base.width*scale,height:base.height*scale,start:obj(base.start),goal:obj(base.goal),terrain:field,pristine,walls:base.walls.map(w=>({...w,height:w.height*scale,points:w.points.map(p=>p.map(v=>v*scale))})),holes:base.holes.map(obj),jumpSpots:base.jumpSpots.map(obj),patches:base.patches.map(obj),route:base.route.map(p=>({...p,x:p.x*scale,y:p.y*scale,speed:p.speed? p.speed*Math.sqrt(scale):undefined}))};
 }

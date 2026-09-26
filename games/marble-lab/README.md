@@ -1,14 +1,16 @@
-# Marble Lab — Relief v0.1 (draft, unendorsed)
+# Marble Lab — Relief v0.1 and Sculpt v0.1 (drafts, unendorsed)
 
-Owner: Ulrich Warring. [Development history](CHANGELOG.md) · [Design decisions](docs/design-decisions.md) · [Remaining acceptance gates](docs/acceptance.md) · [Working with this repository](CONTRIBUTING.md)
+Owner: Ulrich Warring. [Development history](CHANGELOG.md) · [Design decisions](docs/design-decisions.md) · [Sculpt task card](docs/task-card-sculpt.md) · [Remaining acceptance gates](docs/acceptance.md) · [Working with this repository](CONTRIBUTING.md)
 
-Mobile browser game, static HTML/CSS/ES modules, no runtime dependencies or sensor uploads. Part of [Game Labs](../../README.md): the current build and every development stage are playable at https://uwarring82.github.io/game-labs/marble-lab/. The task card is implemented as a draft. U. Warring's endorsement and both physical-phone acceptance runs remain outstanding.
+Mobile browser game, static HTML/CSS/ES modules, no runtime dependencies or sensor uploads. Part of [Game Labs](../../README.md): the current build and every development stage are playable at https://uwarring82.github.io/game-labs/marble-lab/. Both task cards are implemented as drafts. U. Warring's endorsement and both physical-phone acceptance runs remain outstanding.
 
 ## Play
 
 Enable tilt → permit motion → hold a comfortable pose → Calibrate → Play. Materials & play offers Motion: tilt only / full and a comfortable tilt limit, default 8° (4–15°). Full motion applies device linear acceleration directly. Calibration also measures the sign of the phone's gravity reading (iPhones report it reversed); if the reading matches neither sign, full motion stays off and the settings say why. A persistent play-time button switches back to tilt only. Touch and keyboard supply tilt only. No gesture, toss, shake or stuck-state detectors exist.
 
 Saddle and Basin is the sole playable level: continuous relief, drainage holes, three to five passes, a low curved wall, a walled dip, a sandy pothole, resin and a goal summit. Hold the whole ball inside the goal ring for three simulated seconds (centre within 2r). Open edges removes the outer walls and preserves the finite board drop/restart.
+
+Sculpt ends the current run and reshapes the board; Done starts a new run. Pressing digs a hollow and pushes up a low rim (Pile does the opposite); holding deepens it and dragging ploughs a furrow. Three brush sizes, Undo and Reset. Each brush tick is limited so slopes stay at or below 14.6°, crests at or below 20 m⁻¹ curvature and hollows at or below 50 m⁻¹. Edits fade out around the start, the hole rims and the goal with its surroundings, which stay as they are. An edited board is labelled, is saved in the browser and has not been checked by the route bot.
 
 ## Sources and modules
 
@@ -17,8 +19,9 @@ Saddle and Basin is the sole playable level: continuous relief, drainage holes, 
 - `dist/terrain.js`: C1 bicubic Hermite field, its consistent gradient/Hessian, normal-offset sphere geometry. Older compact terrain survives only as a test fixture.
 - `dist/landscape.js`: seeded Gaussian/warped landscape, slope/crest-bounded construction, topology and gradient-flow drainage, local patches, material scaling and 0.7 s goal-curvature reference.
 - `dist/relief-config.js`: generator-selected seed; no second level selector.
+- `dist/sculpt.js`: player edits as node deltas on the relief's Hermite grid (read by every ball's field), zero-volume clay brush, mirrored board edges, keep-out mask, per-tick projection onto the slope/crest/hollow bounds, stroke record with bit-identical replay for undo, reset and reload.
 - `dist/materials.js`: fixed scenario coefficients, 5 balls × 4 floors × 2 wall materials, and spatial resin/sand patch profiles. Steel/rubber/cork reference radius is now 5 mm; shell/billiards retain physical dimensions and enlarge the board.
-- `dist/render.js`, `viewport.js`, `sound.js`: cached fixed-light relief/contours, material texture, polyline height cues, shadow on ground projection, actual spin, safe areas/DPR≤2, and contact-driven audio/haptics.
+- `dist/render.js`, `viewport.js`, `sound.js`: cached floor texture and fixed-light relief/contours (redrawn only where a Sculpt edit changed them), material texture, polyline height cues, shadow on ground projection, actual spin, safe areas/DPR≤2, and contact-driven audio/haptics.
 - `dist/model-notes.html`, `material-parameters.json`: active equations, all contact coefficients, assumptions, sources, scope and measurement gates.
 
 ## Verification and generation
@@ -29,7 +32,7 @@ Saddle and Basin is the sole playable level: continuous relief, drainage holes, 
 
 Acceptance scope is all five balls on hardwood, not every whole-board floor swap. Trials perturb initial position; they are not a phone latency/noise model or independent human trials. Bot acceleration is allowed only inside declared jump regions. It supplies acceleration waveforms, never a ball velocity or jump flag. The 0.65√s m/s carried-speed fixture is stronger than the task card's illustrative 0.4 m/s motion, for a physically sufficient finite-stop jump.
 
-`npm test` runs 96 checks. Forty legacy maze routes remain as non-playable regression fixtures for material mechanics. Relief has its own acceptance trials and tests for gravity removal, the gravity sign check (including a recorded iPhone export), sample holds, finite-stop toss, load-dependent grip, 3×3 jump table, resin, confinement, drainage and summit tuning. Drawing/audio tests use API doubles, not actual pixels or listening.
+`npm test` runs 113 checks. Forty legacy maze routes remain as non-playable regression fixtures for material mechanics. Relief has its own acceptance trials and tests for gravity removal, the gravity sign check (including a recorded iPhone export), sample holds, finite-stop toss, load-dependent grip, 3×3 jump table, resin, confinement, drainage and summit tuning. Sculpt has tests for brush volume and derivatives, every ball seeing the edits in its own units, the slope, crest and hollow bounds, untouched keep-outs, mirrored edges, bit-identical undo/reset/reload, stroke loading, a hollow that holds a ball, and the dirty-rectangle redraw. Drawing/audio tests use API doubles, not actual pixels or listening.
 
 `node scripts/write-model-notes.mjs` regenerates the notes and coefficient ledger from the active code and acceptance record. Run after validation. The publish sequence also checks JavaScript syntax, DOM wiring and local asset references.
 
@@ -49,4 +52,4 @@ Acceptance scope is all five balls on hardwood, not every whole-board floor swap
 
 On each phone use Diagnostics → Clear motion → choose scenario → perform motion → Export motion JSON. Record stationary baseline, 30° tilt in 0.3 s without intended translation, in-plane pulses and upward flicks. Inspect leakage (<0.3 m/s² target), sample timing, caps and possible clipping. Play the route in tilt-only and full modes. Phone recordings stay local until exported; there is no telemetry or inferred pass result.
 
-Both phone entries in the acceptance record remain pending, with null measurements and no endorser. Browser visual inspection and real-device permission, performance, sound and motion testing were unavailable in this execution environment. No second level is exposed before those gates.
+Both phone entries in the acceptance record remain pending, with null measurements and no endorser. Browser visual inspection and real-device permission, performance, sound and motion testing were unavailable in this execution environment. No second level is exposed before those gates. An edited Saddle and Basin is a labelled variant of the one level, published before the gates with U. Warring's go-ahead of 26 September 2026.

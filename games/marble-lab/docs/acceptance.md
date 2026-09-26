@@ -37,10 +37,35 @@ The first iPhone export (26 September 2026, phone lying flat) showed the reverse
 
 If short flicks are unreliable at delivered rates, investigate longer waveforms rather than adding gesture detection. Keep full-motion fatigue and the tilt-only fallback in the physical play test.
 
+## Sculpt v0.1 (S1, terrain editing)
+
+Status: **draft, unendorsed**. Software evidence only.
+
+- [x] Brush and edit layer: volume, derivatives and flat-ground limits; local updates equal to a full rebuild; bit-identical sampling without edits; every ball sees the edits in its own units. A source guard keeps engine-approximated Math out of the replay path.
+- [x] Bounds after a random 24-stroke session stay within 2% of their bounds at 5 × 5 points per cell. The worst case is crest curvature 1.1% over, between the 3 × 3 check points. A long hold with every brush stops at the slope bound. With the crest bound lifted, a narrow press stops at the hollow bound.
+- [x] After heavy editing around start, goal and holes, every ball's field is unchanged within those zones, including the whole goal blend. The 0.7 s summit test passes for every ball.
+- [x] Mirrored edge presses conserve volume, and the keep-out fade has consistent node derivatives. Undo, reset and reload replay bit for bit. Stroke loading refuses foreign, malformed and inherited data.
+- [x] A dug hollow holds a released steel ball that rolls away on the unedited slope. A brush tick redraws only its rectangle, and the brush rings are drawn.
+- [x] The code was reviewed adversarially (core, integration and rendering, app, tests), and each finding was re-checked by a skeptic. Confirmed findings were fixed, and the mutants they described now fail the tests.
+- [ ] Not yet: several fuzz seeds on every ball's field; reference strokes with a golden hash; frame-rate independence of the deposit; tests for the build-phase state logic. See the task card.
+- [x] With no edits, regenerated relief-generation.json and relief-validation.json are byte-identical to a baseline generated before the change on the same machine (arm64, Node 25.9). The committed relief evidence is unchanged.
+- [x] Driven in headless Chrome with emulated touch: dig, pile, drag, undo, reset, Done, play, reload with autosave. No page errors.
+
+| Measurement | Phone 1 | Phone 2 |
+| --- | --- | --- |
+| Board width on screen; fingertip size on the board | Pending | Pending |
+| Press and drag with the phone held: in-plane acceleration and tilt shift | Pending | Pending |
+| Hold-to-depth feel; brush ring and limit colour visible around the finger | Pending | Pending |
+| Brush tick time and frame intervals during a stroke; full redraw after undo | Pending | Pending |
+| Long press: selection, callout, loupe, context menu, pointercancel near screen edges | Pending | Pending |
+| Autosave survives app switch and reload | Pending | Pending |
+| Edited board: play in tilt-only and full motion | Pending | Pending |
+
 ## Endorsement
 
 - [ ] Both phone results reviewed and recorded honestly.
 - [ ] Actual visual/audio/performance checks completed.
 - [ ] U. Warring endorses Task Card Relief to v1.0.
+- [ ] Sculpt phone rows recorded honestly; U. Warring endorses Task Card Sculpt.
 
-No automatic endorsement, fabricated measurement or second playable level.
+No automatic endorsement, fabricated measurement or second playable level. An edited Saddle and Basin is a labelled variant of the one level.

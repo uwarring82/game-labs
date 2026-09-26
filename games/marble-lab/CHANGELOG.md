@@ -54,3 +54,56 @@ The web-app manifest's `id`, `start_url` and `scope` are now `./` instead of `/`
 The first real-phone test (iPhone, Safari) showed full motion reading about −2g upward at rest, which threw the ball off the board. Cause: the W3C specification and Android report `accelerationIncludingGravity` as +g along the upward screen normal, but WebKit passes Core Motion's opposite sign through unchanged, so every iPhone browser reports all three axes reversed. The game subtracted spec-convention gravity, doubling it instead of removing it. Tilt only was unaffected.
 
 Calibration now measures the convention. During the hold-still window, the mean reading is compared with the gravity predicted from β/γ. A match within 0.1g directly or negated sets the sign for later samples. Anything else, or no readings, turns full motion off with an explanation, and tilt-only continues to work. Diagnostics show the detected sign and the rest residual, and motion exports (schema v0.2) include both. Three new tests cover the check, both conventions at four screen rotations, and 30 samples from the recorded iPhone export (rest residual below 0.1 m/s² after correction). Physical-phone acceptance remains pending.
+
+## Sculpt v0.1 — 26 September 2026
+
+The player can reshape Saddle and Basin. Sculpt ends the current run and opens a build phase:
+
+- **Brush.** Pressing the board digs a hollow and pushes up a low rim around it; Pile does the opposite. Holding deepens it and dragging ploughs a furrow.
+- **Controls.** Three brush sizes, Undo and Reset. Done starts a new run on the edited board.
+- **Saving.** Edits are autosaved in the browser.
+- **Labelling.** An edited board is labelled as edited and has not been checked by the route bot.
+
+The specification, its decisions and the measurements behind them are in [docs/task-card-sculpt.md](docs/task-card-sculpt.md). S1, terrain editing, is implemented. Sand pits and player barriers (S2), checked puzzle boards (S3) and live editing (S4) are not.
+
+**Model.** Edits are node deltas on the relief's own Hermite grid, added to every ball's field when it is sampled, so the edited board stays one C¹ potential for the unchanged contact solver.
+
+- **Brush shape.** A compact Mexican hat with zero net volume. Stamps are mirrored at the board edges.
+- **Protected zones.** A C² mask fades edits to zero over 30 mm around the start shelf, the hole rims and the goal. The goal zone covers the whole 83 mm blend in which each ball's summit curvature is tuned, so limits checked on the steel field hold for every ball.
+- **Limits.** Each 50 ms brush tick is scaled so slopes stay at or below 14.6°, crest curvature at or below 20 m⁻¹ and hollow curvature at or below 50 m⁻¹. Where the relief already exceeds a bound, the tick makes it no worse.
+- **Relaxed crest bound.** The crest bound is relaxed from the generator's 9.65 m⁻¹. On an edited level crest, contact holds to about 0.73 m/s rather than 1.03 m/s, and faster balls hop.
+
+**Rendering.** The floor texture is now cached separately, and a brush tick redraws only the rectangle it changed. The contour interval is fixed per ball from the unedited relief. The last contour row no longer extends 1.7 mm past the bottom edge.
+
+**Evidence.** Seventeen new tests bring the total to 113. They cover:
+- brush volume, derivatives and flat-ground limits;
+- a local update matching a full rebuild;
+- bit-identical sampling without edits, and every ball seeing the edits in its own units;
+- the bounds after a random editing session (crest curvature measured up to 1.1% over, between check points);
+- a long hold stopping at the slope bound, and a narrow press stopping at the hollow bound;
+- pristine keep-outs for every ball's field, with the 0.7 s summit test passing for every ball;
+- mirrored edge volume and consistent fade derivatives;
+- bit-identical undo, reset and reload, and load validation;
+- a source guard on the replay arithmetic;
+- a hollow that holds a released ball;
+- the dirty-rectangle redraw and the brush rings;
+- support-solver curvature regressions.
+
+Before commit, the task card and the code were each reviewed adversarially, and a skeptic re-checked every finding. Confirmed findings were fixed, among them:
+- the limits missing the goal correction on the table-tennis and billiard boards;
+- fades too narrow around the holes;
+- toolbar placement over the board;
+- dropped brush ticks on slow frames;
+- tests that let mutants through.
+
+The listed mutants now fail the tests.
+
+With no edits, regenerated relief-generation.json and relief-validation.json are byte-identical to a baseline generated before the change on the same machine. The committed relief evidence is unchanged.
+
+On this arm64 Mac, even unchanged code differs from the committed files in the last digits of 36 values. The committed files reproduce on x64, so the engine-extraction check has to compare against a same-machine baseline.
+
+The Sculpt flow was driven in headless Chrome with emulated touch. On an M1 Pro in Node, a brush tick measured 0.9, 1.7 and 3.5 ms median for the three sizes (p95 1.7, 3.1 and 6.4 ms). Phone timing and feel are pending.
+
+Open S1 follow-ups are listed in the task card: a depth gauge, a fling rule, capped or snapshot undo, and tests for frame-rate independence and the build-phase logic.
+
+U. Warring gave the go-ahead for this stage, and delegated its open choices, on 26 September 2026, before the Relief phone gate. No second level or level selector was added.
