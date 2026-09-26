@@ -1,4 +1,4 @@
-import {Heightfield,FLAT} from './terrain.js';
+import {Heightfield,FLAT,hermiteCell} from './terrain.js';
 import {RELIEF_SEED} from './relief-config.js';
 export const RELIEF={width:.3,height:19/30,radius:.005,tiltBudget:8,goalTime:.7,seed:RELIEF_SEED,grid:.0025};
 export function random(seed){let a=seed>>>0;return()=>{a=(1664525*a+1013904223)>>>0;return a/4294967296;};}
@@ -68,12 +68,25 @@ export function levelFromLandscape(land,withDrainage=true){
 let selected;
 export function reliefLevel(){return selected??=(levelFromLandscape(makeLandscape()));}
 const adjustedFields=new WeakMap();
-export function scaledLevel(base,scale,k=.4,r=RELIEF.radius*scale){
+// A copy of field that shares every cell except those within reach of the goal, which
+// are rebuilt with the correction added: about 2 MB instead of a full 11 MB field.
+function patchedField(field,correction,goal,reach){
+ const f=Object.assign(Object.create(Heightfield.prototype),{width:field.width,height:field.height,nx:field.nx,ny:field.ny,sx:field.sx,sy:field.sy,cells:new Map(field.cells)}),nodes=new Map();
+ const node=(i,j)=>{const key=j*(f.nx+1)+i;if(!nodes.has(key)){const x=i*f.sx,y=j*f.sy,p=field.sample(x,y),q=correction(x,y);nodes.set(key,{h:p.h+q.h,dx:p.dx+q.dx,dy:p.dy+q.dy,dxy:p.dxy+q.dxy});}return nodes.get(key);};
+ const i0=Math.max(0,Math.floor((goal.x-reach)/f.sx)),i1=Math.min(f.nx-1,Math.ceil((goal.x+reach)/f.sx)),j0=Math.max(0,Math.floor((goal.y-reach)/f.sy)),j1=Math.min(f.ny-1,Math.ceil((goal.y+reach)/f.sy));
+ for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const c=hermiteCell(node(i,j),node(i+1,j),node(i,j+1),node(i+1,j+1),f.sx,f.sy);if(c)f.cells.set(j*f.nx+i,c);else f.cells.delete(j*f.nx+i);}
+ return f;
+}
+// r defaults to the material's nominal radius. A resized ball (shared=true) gets a
+// patched field that is not cached here: the relief evidence covers nominal sizes only,
+// whose fields are built exactly as before.
+export function scaledLevel(base,scale,k=.4,r=RELIEF.radius*scale,shared=false){
  const targetRc=9.81*RELIEF.goalTime**2/(1+k)-r,delta=scale/targetRc-1/base.goalRadius;
  const correction=numericalField((x,y)=>{const d=Math.hypot(x-base.goal.x,y-base.goal.y);return-.5*delta*d*d*(1-smooth((d-.018)/.065));});
- let cache=adjustedFields.get(base);if(!cache){cache=new Map();adjustedFields.set(base,cache);}const key=scale+'/'+k;
- let adjusted=cache.get(key);if(!adjusted)adjusted=Math.abs(delta)<1e-12?base.field:new Heightfield((x,y)=>{const p=base.field.sample(x,y),q=correction(x,y);return{h:p.h+q.h,dx:p.dx+q.dx,dy:p.dy+q.dy,dxy:p.dxy+q.dxy};},base.width,base.height,RELIEF.grid);
- cache.set(key,adjusted);
+ let cache=adjustedFields.get(base.field);if(!cache){cache=new Map();adjustedFields.set(base.field,cache);}const key=scale+'/'+k+'/'+r;
+ let adjusted=cache.get(key);if(!adjusted&&shared&&Math.abs(delta)>=1e-12)adjusted=patchedField(base.field,correction,base.goal,.018+.065+.004);
+ if(!adjusted)adjusted=Math.abs(delta)<1e-12?base.field:new Heightfield((x,y)=>{const p=base.field.sample(x,y),q=correction(x,y);return{h:p.h+q.h,dx:p.dx+q.dx,dy:p.dy+q.dy,dxy:p.dxy+q.dxy};},base.width,base.height,RELIEF.grid);
+ if(!shared)cache.set(key,adjusted);
  const scaled=p=>({h:p.h*scale,dx:p.dx,dy:p.dy,dxx:p.dxx/scale,dxy:p.dxy/scale,dyy:p.dyy/scale});
  const pristine={sample(x,y){return scaled(adjusted.sample(x/scale,y/scale));}};
  // Player edits (sculpt.js) are node deltas in base coordinates, added to every

@@ -41,9 +41,29 @@ The owner asked for a landscape the player can reshape: valleys and hills from p
 2. Edits happen only in a paused build phase. Entering and leaving it starts a new run. A press moves the phone, and the ball would feel it; moving-surface contact does not exist.
 3. Edited boards keep Relief's slope bound (14.6°) and add a hollow bound of 50 m⁻¹. The crest bound is relaxed from 9.65 to 20 m⁻¹. At 9.65 a fingertip-sized press is under 1 mm deep and feels like nothing. At 20, a 5 mm ball on a level crest keeps contact up to about 0.73 m/s instead of 1.03 m/s.
 4. Edits fade to zero, over 30 mm, around the start shelf, the hole rims and the goal. The goal zone covers the whole 83 mm blend in which each ball's summit curvature is tuned, so the limits checked on the steel field hold for every ball. The pocket, pothole and lip stay editable. Hard keep-outs covering the whole brush would have left only about a third of the board editable at the medium size.
-5. The level-as-input refactor, which is also engine-extraction step 1, is deferred to S2. Terrain edits need only the per-ball terrain wrappers; walls and patches do not change in S1.
+5. The level-as-input refactor, which is also engine-extraction step 1, was deferred to S2: terrain edits need only the per-ball terrain wrappers. It was done for movable walls (below).
 6. Undo replays the stroke list from scratch rather than storing per-stroke snapshots. Replay is exact and simple; a heavy session replays in about 0.1 s on the development Mac.
 7. Edited boards are never called validated. The route bot, drainage and pocket evidence apply to the unedited relief only.
+
+**Movable walls and ball size**
+
+On 26 September 2026 the owner reviewed stage 07 and asked for movable authored walls and a variable ball size. That settled task-card decision D6 in favour of the level's own walls, not player-placed barriers.
+
+The owner had asked to be consulted before engine-extraction step 1. The request was read as the go-ahead for that step only, because moving walls needs it: physics.js takes the level as an input, and each ball carries its layout. Nothing moved into `packages/`. With the relief and nominal sizes, the arithmetic is unchanged, and the regenerated evidence is byte-identical to a same-machine baseline.
+
+8. The low wall and the pocket wall move. The border stays, because it is the board's edge.
+   - **Gestures.** A wall moves when dragged. It turns about the centre of its bounding box when its handle is dragged; the handle sits 85% of the way along the wall, away from the screen edge.
+   - **Rules.** Walls stay on the board and keep clear of the start (25 mm), the holes and the goal ring (their radius plus 12.5 mm).
+   - **Crossing.** Walls may cross, as the authored pocket wall passes through the low wall.
+   - **Gates.** Moving a wall can open a tilt-only route past the low wall, or free the pocket trap. That is allowed on an unchecked board.
+9. Ball size changes the ball, not the board. The table-tennis and billiard boards keep the scale of their nominal ball, while the ball ranges from 0.5 to 1.6 times its nominal diameter.
+   - **Mass.** Solid balls keep their density. The table-tennis shell keeps its wall, so its mass scales with area.
+   - **Why.** Scaling the board with the ball, as the materials already do, would change only the pace. A size relative to the board changes what happens: smaller balls drop into holes more often and at higher speeds, and walls are relatively lower for large balls.
+   - **Why 1.6×.** From 1.7× a ball is wider than a hole. It then seats in the rim, which holds it at an angle no tilt overcomes, and the game has no stuck detector to end the run.
+   - **Summit timing.** Each size gets its own goal-curvature correction, keeping the 0.7 s summit time.
+   - **Coverage.** Level acceptance covers the nominal sizes only.
+   - **Contact solver.** At 1.6× the Sculpt hollow bound reaches r·κ = 0.4 for every ball; the support solver was checked correct at 0.5.
+10. Walls must leave a way from the start to the goal for the largest ball, checked by a coarse flood fill that treats low walls as hoppable. Without it, a legal pose of the pocket wall shut a 2× ball in at the start. Wall poses are saved under their own key, because stage 07 shares the strokes key and would erase them.
 
 ## Evidence
 

@@ -261,7 +261,8 @@
       "description": "Hollow shell · light, springy, air resistance matters most",
       "mass": 0.0027,
       "radius": 0.02,
-      "inertiaRatio": 0.6666666666666666
+      "inertiaRatio": 0.6666666666666666,
+      "shell": true
     },
     "cork": {
       "name": "Cork",
@@ -694,6 +695,22 @@
       "b1": 0,
       "effectiveModulus": 1000000000
     }
+  },
+  "ballSizes": {
+    "min": 0.5,
+    "max": 1.6,
+    "rule": "multiplies the nominal diameter; the board keeps the nominal scale; solid balls keep density, the table-tennis shell mass scales with area"
+  },
+  "wallMoves": {
+    "edge": 0,
+    "start": 0.025,
+    "extra": 0.0125,
+    "grid": 0.0005,
+    "turn": 0.017453292519943295,
+    "ball": 0.008,
+    "cell": 0.004,
+    "movable": "every wall except the border",
+    "pose": "turn about the bounding-box centre, then shift"
   },
   "sculpt": {
     "taskCard": "Sculpt v0.1 (draft, unendorsed)",

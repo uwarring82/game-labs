@@ -1,6 +1,9 @@
 # Task Card “Sculpt” v0.1 — adjustable landscape (draft, unendorsed)
 
-Owner: U. Warring. Date: 26 September 2026. Status: **draft, unendorsed**. Stage S1 (terrain editing) is implemented and published as development stage 07. S2–S4 are planned, not started. The card depends on Task Card “Relief” v0.1, whose two-phone gate is still open. Values marked *proposed, to tune* have no measurement behind them.
+Owner: U. Warring. Date: 26 September 2026. Status: **draft, unendorsed**.
+- **Stage 07.** S1 (terrain editing) is implemented and published as development stage 07.
+- **Stage 08.** Movable authored walls (the owner's choice under D6, part of S2) and a variable ball size (an owner request, D8) are implemented as development stage 08.
+- **Not started.** Sand pits (the rest of S2), S3 and S4. The card depends on Task Card “Relief” v0.1, whose two-phone gate is still open. Values marked *proposed, to tune* have no measurement behind them.
 
 For the owner: Purpose, Decisions and Stages take about ten minutes. The rest is for implementers.
 
@@ -15,7 +18,7 @@ The owner asked: “Pushing the screen may create valleys and hills, sand holes,
 
 ## Decisions
 
-On 26 September 2026 the owner wrote: “You have green light to go through with a next development stage of the game. Commit and push when it is ready. No need to ask me again.” The implementer decided D1–D5 and D7 under that delegation, as recorded below, and the owner can overrule any of them. D6 is needed only for S2 and stays open. D4 (a) would start engine extraction, which needs the owner's explicit go-ahead, so it was not chosen.
+On 26 September 2026 the owner wrote: “You have green light to go through with a next development stage of the game. Commit and push when it is ready. No need to ask me again.” The implementer decided D1–D5 and D7 under that delegation, as recorded below, and the owner can overrule any of them. After reviewing stage 07, the owner decided D6 (movable authored walls) and asked for a variable ball size (D8). That request also covered D4.
 
 **D1. Publishing Sculpt before the Relief gate.** Decided: (c). An edited Saddle and Basin is a labelled variant of the one level, not a second playable level. There is no level selector, and the board says it is edited and unchecked. The rule “no second playable level before two-phone acceptance” stands; README.md, design-decisions.md and acceptance.md now say that an edited board is this variant. Options not chosen:
 - (a) wait for the gate;
@@ -35,18 +38,28 @@ Every push to `main` republishes `latest/`, and stage entries stay playable perm
 - **What stays.** The slope bound (tan 14.6°) is kept. A new hollow bound of 50 m⁻¹ keeps r·κ ≤ 0.25 for the single-contact support solver.
 - **Reversal.** Switching back is one constant and a new stroke-format version (Persistence).
 
-**D4. Level-as-input refactor (engine-extraction step 1).** Decided: (b), deferred to S2.
-- **Why S1 doesn't need it.** The per-ball terrain wrappers read one shared edit layer, and START, GOAL, WALLS and HOLES stay constants.
-- **S2.** S2 needs the refactor, because render.js reads walls and patches as constants. Ask the owner before starting it.
+**D4. Level-as-input refactor (engine-extraction step 1).** Deferred from S1, done for stage 08.
+- **Why S1 didn't need it.** The per-ball terrain wrappers read one shared edit layer.
+- **Why movable walls do.** The owner's request for movable walls was read as the go-ahead for this step only. Nothing moved into `packages/`.
+- **What changed.** physics.js now takes the level as an input, each ball carries its layout, and the renderer draws from a level object.
+- **Unchanged without edits.** With the relief and nominal sizes the arithmetic is unchanged; the regenerated evidence is byte-identical to a same-machine baseline (E5).
 
 **D5. Status of edited boards.** Decided: (a), labelled and unchecked.
 - **Label.** The scene reads “SADDLE AND BASIN · EDITED”; the ready message reads “Edited board: the route bot has not checked it.”; a win adds “edited board”.
 - **Never “validated”.** validate-relief.mjs:15 rejects any player-made basin (holes.length === basins.length), and the authored-route bot cannot see detours or shortcuts.
 - **Later.** An in-browser check with the labels “Bot-finished / Not finished by the bot / Unchecked” belongs to S3.
 
-**D6. Movable authored walls, or player-owned barriers?** Open; needed for S2. Recommendation: authored walls (border, low, pocket) stay locked, and players place their own barriers.
-- **Moving the low wall.** A 2 cm move in y makes rubber fail 0/3. A 2 cm move sideways opens a 4r gap and a tilt-only route (3/3 steel and rubber), while the authored-route bot still passes.
-- **Removing the pocket wall.** Steel escapes in 0.5 s, and pocketTrial still passes.
+**D6. Movable authored walls, or player-owned barriers?** Decided by the owner on 26 September 2026: (b), authored walls move.
+- **What moves.** The low wall and the pocket wall; the border stays, being the board's edge.
+- **Against the card's recommendation.** The card had recommended keeping them locked, because moving them changes what the level tests:
+  - a 2 cm move of the low wall in y makes rubber fail 0/3;
+  - a 2 cm move sideways opens a 4r gap and a tilt-only route (3/3 steel and rubber), while the authored-route bot still passes;
+  - removing the pocket wall frees steel in 0.5 s, and pocketTrial still passes.
+- **Consequence.** On an edited, unchecked board these changes are the player's to make (D5).
+
+**D8. Ball size.** Requested by the owner on 26 September 2026 and decided by the implementer: the size is relative to the board.
+- **Range.** The ball ranges from 0.5 to 1.6 times its nominal diameter, while the board keeps the nominal ball's scale. Larger balls would be wider than the holes and could seat in them for good.
+- **Why not scale the board.** Scaling the board with the ball, as the five materials already do, would change only the pace of play, not what can happen.
 
 **D7. Keep-outs.** Decided: (c). Edits are multiplied by a C² fade that is exactly zero at the start shelf, the goal and the hole rims.
 - **Why not hard keep-outs.** With hard keep-outs (no stamp may touch a zone), only 35% of positions could hold a medium brush centre, and the forbidden region would change with brush size.
@@ -58,7 +71,7 @@ Every push to `main` republishes `latest/`, and stage entries stay playable perm
 | Stage | Scope | Playable stage |
 | --- | --- | --- |
 | S1 | Build phase and clay brush: dig or pile, hold, drag. Undo, reset, local autosave, dirty-rectangle rendering. Terrain only. | `07-sculpt`, implemented |
-| S2 | Player barriers and sand pits in the build phase; the level-as-input refactor with the owner's go-ahead. | `08`, planned |
+| S2 | Movable authored walls and the level-as-input refactor (done), with variable ball size (D8). Sand pits are still planned. | `08-walls-and-size`, implemented; sand pits later |
 | S3 | In-browser check, share links, puzzle boards with a material budget. | `09`, only after the Relief two-phone gate (puzzles are new boards) |
 | S4 | Live sculpting, with its own task card. | After its own gate |
 
@@ -75,11 +88,12 @@ Every push to `main` republishes `latest/`, and stage entries stay playable perm
 - **Measurement.** A Diagnostics scenario for press disturbance with the phone held.
 - **Desktop.** Shift to invert the tool.
 
-**S2 done when:**
-- [ ] The level-as-input refactor is merged with the owner's go-ahead. Patches are drawn exactly as patchAt tests them. A wall broadphase is merged with the Relief outputs unchanged.
-- [ ] Player barriers pass B1–B8.
-- [ ] Sand pits respect the bounds and keep-outs.
-- [ ] Stroke format v2 holds barriers and pits, with undo and autosave.
+**S2 so far**
+- [x] Level-as-input refactor, with the Relief outputs unchanged (E5).
+- [x] Movable authored walls: poses, rules, undo, reset, autosave and local redraw.
+- [x] Variable ball size (D8).
+- [ ] Sand pits that respect the bounds and keep-outs, drawn exactly as patchAt tests them.
+- [ ] A wall broadphase, merged with the Relief outputs unchanged.
 
 **S3 done when:**
 - [ ] Bot, planner and structural checks run as pure dist/ modules in a module Web Worker, with Node tests over the worker's module graph.
@@ -188,6 +202,47 @@ h(s) = −a (1 − 5s)(1 − s)³ for s < 1, else 0.
 - **Versioning.** SCULPT_VERSION must be bumped whenever the brush, the bounds, the keep-outs or the relief change, because a stored α is valid only for what produced it.
 - **Limits.** Autosave is a convenience only. All Game Labs games and stages share one 5 MiB quota, and Safari may evict data after 7 days without interaction.
 
+### Movable walls (stage 08)
+
+- **What moves.** Every wall except the border: the low wall and the pocket wall. Heights, kinds and materials never change, and a wall's foot follows the ground wherever it is put.
+- **Pose.** A turn by a about the centre of the wall's bounding box, then a shift (dx, dy), in base coordinates. Poses are stored on a 0.5 mm grid and in whole degrees.
+  - **Why the box centre.** The low wall's point centroid sits off-centre, at 180 mm on a 300 mm wall, and a turn about it pushed an end off the board.
+- **Gestures.** With the Walls tool, a press within 20 mm of a wall and a drag move it. A press within 15 mm of its round handle and a drag turn it; the handle has priority.
+  - **Handle position.** The handle sits 85% of the way along the wall, clear of the board edge and its system swipe gestures.
+- **Rules.**
+  - Points stay on the board; the 3 mm strip outside the border lines lies behind the border curtain.
+  - Every wall keeps 25 mm from the start point and 12.5 mm beyond the radius of each hole and of the goal ring.
+  - A way from the start to the goal must remain for the largest ball (8 mm radius at steel scale).
+    - **Method.** A flood fill on a 4 mm grid, blocked within one ball radius of every wall except low walls, which a ball can hop in full motion.
+    - **Why.** Without this rule, a legal turn of the pocket wall shut a 2× ball in at the start.
+  - A drag moves a wall only after 4 mm of board or 2° of turn, so a tap is no move. A pose equal to the authored one removes the entry, and the level becomes the relief itself again.
+  - A wall can't be dragged under the toolbar, so the point held stays reachable.
+  - Walls may cross, as the authored pocket wall passes through the low wall; each segment collides on its own.
+  - A drag that breaks a rule keeps the last valid pose and says why.
+  - Moving a wall can open a tilt-only route or free the pocket trap. That is allowed on an unchecked board.
+- **Undo, reset and saving.**
+  - Wall moves share one undo history with strokes. Reset clears both and is itself undoable.
+  - Poses are saved under their own key (`sculpt-walls/v1`). Stage 07 shares the strokes key and, saving, would drop anything it doesn't know.
+  - Invalid saved poses are dropped, and the strokes still load.
+  - The order of strokes and wall moves is not saved: after a reload, undo takes back wall moves, to the authored wall, before strokes.
+- **Level and caches.** The level is the relief itself until a wall moves, then a copy with the moved walls. Each copy is a new object per wall change, so layouts cached per level object never go stale.
+- **Redraw.** A moved wall redraws only the rectangle around its old and new place.
+
+### Ball size (stage 08)
+
+- **Range.** Materials & play sets 0.5–1.6× the nominal diameter in steps of 0.1. Changing it starts a new run.
+- **Board.** The board keeps the nominal ball's scale, so holes (8.25 mm radius at steel scale), walls (10 and 30 mm high) and the goal ring (15 mm) keep their size.
+- **Mass.** Solid balls keep their density (mass ∝ size³). The table-tennis shell keeps its wall (mass ∝ size²). The inertia ratio is unchanged.
+- **Summit time.** Each size gets its own goal-curvature correction, keeping the 0.7 s summit time for every ball and size.
+- **Memory.** Resized balls get a field that shares the relief's cells except within 87 mm of the goal: about 2 MB instead of 11 MB. At most four resized layouts stay cached per level.
+- **Holes.** Every size stays narrower than the holes (1.65 reference radii).
+  - **Why.** A wider ball would seat in the rim: the rim contact normal sits asin(a/r) from vertical, 56° at 2×, beyond any tilt. It would stay there, and the game has no stuck detector.
+  - **Capture.** Smaller balls are captured more often and at higher speeds. In a scan of 0.1–1.5 m/s crossings, steel is captured up to 1.0 m/s at 0.5× and up to 0.52 m/s at 1.6×.
+  - **Single speeds.** At any single speed, capture is not monotonic in size, because of rim bounces.
+- **Goal.** A win needs the ball's centre within goal.r − r of the goal centre: 10 mm at nominal steel size, 7 mm at 1.6×.
+- **Contact solver.** At 1.6× the Sculpt hollow bound reaches r·κ = 0.4 for every ball; the support solver was checked correct at 0.5.
+- **Coverage.** Route acceptance covers the nominal sizes only.
+
 ### Sand pits (S2, planned)
 
 - **Stamp.** h = −D q³ with q = 1 − ρ²/R² and R = √5·a, so the steepest ring sits at the visible radius a. The sand disc has radius 0.684a, the Relief pothole's sand-to-σ ratio.
@@ -198,7 +253,7 @@ h(s) = −a (1 − 5s)(1 − s)³ for s < 1, else 0.
   - The reference pulse frees steel only from pits with a ≤ 20 mm, or with a = 30 mm and D ≤ 4 mm.
 - **Drawing.** Patches must be drawn exactly as patchAt tests them. Today the drawing is rotated −0.15 rad while physics is axis-aligned (render.js, physics.js patchAt).
 
-### Player barriers (S2, planned)
+### Player barriers (not planned after D6)
 
 - **Inventory** (*proposed*). Up to 4–6 straight walls, each 40–120 mm long, 300 mm in total. Height 2r or 6r, with the global wall material. The kind is never `border`, because open edges hides border walls.
 - **Handles.** Move, rotate and resize, snapping to 2.5 mm and 15°. Endpoints within 5 mm join sealed.
@@ -222,7 +277,11 @@ h(s) = −a (1 − 5s)(1 − s)³ for s < 1, else 0.
 - **E2 Edit layer.**
   - **Where it lives.** One sparse layer of node deltas on the relief grid, in base coordinates. The app attaches it to the level as `edits`, and scaledLevel's wrapper adds it at sample time.
   - **Without edits.** With no edits, or outside edited cells, the wrapper returns exactly the unedited arithmetic. Scripts never attach edits.
-- **E3 Level as input.** S2; see D4.
+- **E3 Level as input** (done for stage 08; see D4).
+  - `layoutFor(material, level, radius)` caches layouts per level object (WeakMap) and radius.
+  - `newBall(material, surface, wall, openEdges, {level, size})` gives the ball a non-enumerable layout, which `advance()` uses unless told otherwise.
+  - The adjusted-field cache in scaledLevel is keyed on the relief field and radius, so a new level object does not rebuild the table-tennis and billiard fields.
+  - The renderer draws walls, holes, start, goal and patches from its level, and `setLevel(level, rect)` redraws a rectangle.
 - **E4 Determinism.**
   - **Replay arithmetic.** Stamps, mirror images, fades, stamp placement and rate use only + − × ÷, Math.sqrt, abs, min, max, floor, ceil and round, on quantized stroke input. tan 14.6° is a literal. A source-guard test enforces this.
   - **The projection.** It may use anything, because α is stored and replay never recomputes it.
@@ -244,6 +303,8 @@ h(s) = −a (1 − 5s)(1 − s)³ for s < 1, else 0.
 8. Ball trajectories and bot results are bit-identical only for the same engine build on the same CPU architecture.
 9. There is no bot evidence that Saddle and Basin, edited or not, can be finished in tilt-only mode. Without the full-motion toss every ball stops at the low wall (0/3, also at 15° and with run-up speeds up to 1.3 m/s).
 10. The press-disturbance data come from one phone lying flat on a table. Hand-held presses are unmeasured.
+11. A moved wall changes what the level tests: the full-motion gate at the low wall and the pocket trap can disappear. An edited board is unchecked (D5).
+12. Ball size is relative to the board. Rolling-resistance lengths and air drag follow the real ball size, not a similarity scaling, so a resized ball is a different physical scenario, not a rescaled one.
 
 ## Acceptance
 
@@ -260,6 +321,20 @@ Done in S1 (tests in tests/sculpt.test.mjs, tests/presentation.test.mjs and test
 - A9. Every ball sees the edits in its own units. The steel field equals the validated relief bit for bit without edits. Scripts see no edit layer.
 - A11. A brush tick redraws a sub-rectangle of the shading image under a smaller clip, a full redraw covers everything, and the brush and keep-out rings are drawn.
 - A12. An edited board is labelled; no wording says “validated” or “impossible”.
+- Stage 08 (tests/walls.test.mjs, tests/presentation.test.mjs):
+  - the authored walls pass the rules;
+  - poses are rigid;
+  - moves off the board, onto a hole, the start or the goal are refused;
+  - a moved wall is where the ball collides, and the unedited level stays untouched;
+  - undo, reset and reload restore wall poses exactly;
+  - invalid saved poses are dropped;
+  - ball size scales mass and size but not the board;
+  - the 0.7 s summit time holds for every size;
+  - resized layouts share the relief's cells and stay few;
+  - holes capture smaller balls more often and faster, and the largest ball can't get stuck;
+  - a way from start to goal remains for the largest ball;
+  - wall poses save apart from the strokes, and a bad saved pose drops only its own wall;
+  - a moved wall redraws only its rectangle, and handles are drawn.
 - Also tested: stroke loading refuses other levels and malformed or inherited data; the keep-out fade has consistent node derivatives; a dug hollow holds a released ball that rolls away on the unedited slope; support-solver curvature regressions.
 
 Open:
@@ -295,6 +370,8 @@ Phones are estimated at 0.8× (recent iPhone) to 3.4× (budget Android) of this 
 | Long press: selection, callout, loupe, context menu, pointercancel near screen edges | Pending | Pending |
 | Autosave survives an app switch and a reload | Pending | Pending |
 | Edited board: play in tilt-only and in full motion | Pending | Pending |
+| Walls tool: grabbing a wall and its handle with a finger; drag feel | Pending | Pending |
+| Ball size: smallest and largest balls visible and controllable | Pending | Pending |
 
 ### Endorsement
 

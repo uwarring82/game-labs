@@ -108,3 +108,44 @@ The Sculpt flow was driven in headless Chrome with emulated touch. On an M1 Pro 
 Open S1 follow-ups are listed in the task card: a depth gauge, a fling rule, capped or snapshot undo, and tests for frame-rate independence and the build-phase logic.
 
 U. Warring gave the go-ahead for this stage, and delegated its open choices, on 26 September 2026, before the Relief phone gate. No second level or level selector was added.
+
+## Movable walls and ball size — 26 September 2026
+
+After trying stage 07, U. Warring asked for movable authored walls and a variable ball size.
+
+- **Walls.** Sculpt has a third tool, Walls. The low wall and the pocket wall can be dragged to a new place or turned with a round handle; the border stays.
+  - **Rules.** Walls stay on the board and keep clear of the start (25 mm), the holes and the goal ring (their radius plus 12.5 mm). A way from the start to the goal must remain for the largest ball; a flood fill checks this.
+  - **Undo and saving.** Wall moves share undo and reset with terrain strokes. They are autosaved under their own key, because stage 07 shares the strokes key and would drop them.
+  - **Consequence.** Moving a wall can open a tilt-only route or free the pocket trap. An edited board stays labelled and unchecked.
+- **Ball size.** Materials & play sets 0.5–1.6× the nominal diameter; the board keeps its size.
+  - **Mass.** Solid balls keep their density; the table-tennis shell keeps its wall, so its mass scales with area.
+  - **Summit time.** Each size keeps the 0.7 s summit time.
+  - **What changes.** Smaller balls drop into holes more often and at higher speeds. At 0.5× steel is captured up to 1.0 m/s, at 1.6× only up to 0.52 m/s.
+  - **Why the limit is 1.6×.** From 1.7× a ball would be wider than a hole and seat in its rim for good. The game has no stuck detector, so the range stops below that.
+  - **Coverage.** Route acceptance covers the nominal sizes.
+
+**Engine.** This is engine-extraction step 1, done at the owner's request for movable walls; nothing moved into `packages/`.
+- **Level as input.** physics.js takes the level as an input, and each ball carries its layout.
+- **Resized balls.** They get a terrain field that shares the relief's cells except near the goal, and at most four such layouts stay cached.
+- **Renderer.** It draws walls, holes, start, goal and patches from its level and redraws a moved wall locally.
+- **Unchanged without edits.** With the relief and nominal sizes the regenerated evidence is byte-identical to the same-machine baseline.
+
+**Evidence.** 126 tests, 13 of them new. They cover:
+- the wall rules and rigid poses;
+- collisions at a moved wall;
+- undo, reset and reload of wall poses, and dropped invalid poses;
+- mass and size scaling, and the summit time at every size;
+- the resized-layout cache;
+- hole capture across sizes, and no seating for the largest ball;
+- the local wall redraw and its handles.
+
+Before commit, the code was reviewed adversarially and each finding re-checked by a skeptic. The confirmed findings are fixed:
+- unwrapped turn angles that could lose all wall moves on reload;
+- stage 07 erasing wall moves through the shared save key;
+- taps recorded as moves;
+- a legal pose that shut a large ball in at the start;
+- balls wider than a hole seating for good;
+- exports without ball size or wall poses;
+- test gaps.
+
+The flow was driven in headless Chrome, and phone checks for both features are pending.

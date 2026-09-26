@@ -1,4 +1,5 @@
-import {W,H,R,START,GOAL,WALLS,HOLES,clamp,layoutFor} from './physics.js';
+import {W,H,R,clamp,layoutFor} from './physics.js';
+import {reliefLevel} from './landscape.js';
 import {fitBoard} from './viewport.js';
 import {GOAL_DWELL} from './terrain.js';
 export const SURFACE_PALETTES={wood:['#d6b07c','#b68a56'],sand:['#d9c191','#b9a072'],ice:['#82b6ca','#6096b0'],baize:['#176b58','#114d42']};
@@ -12,7 +13,7 @@ const turn=(q,v)=>{const [a,b,c,d]=q,[x,y,z]=v,tx=2*(c*z-d*y),ty=2*(d*x-b*z),tz=
 const DOTS=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
 const SPECKLES=Array.from({length:64},(_,i)=>{const z=1-2*(i+.5)/64,a=i*2.39996323,t=Math.sqrt(1-z*z);return[t*Math.cos(a),t*Math.sin(a),z];});
 export class Renderer{
- constructor(canvas,wrap){this.canvas=canvas;this.wrap=wrap;this.ctx=canvas.getContext('2d',{alpha:false});this.base=makeCanvas();this.texture=makeCanvas();this.marks=makeCanvas();this.shade=makeCanvas();this.shade.width=180;this.shade.height=380;this.intervals=new Map();this.key='';this.textureKey='';this.previous=null;this.rebuilds=0;this.resize();}
+ constructor(canvas,wrap){this.canvas=canvas;this.wrap=wrap;this.ctx=canvas.getContext('2d',{alpha:false});this.base=makeCanvas();this.texture=makeCanvas();this.marks=makeCanvas();this.shade=makeCanvas();this.shade.width=180;this.shade.height=380;this.intervals=new Map();this.level=reliefLevel();this.key='';this.textureKey='';this.previous=null;this.rebuilds=0;this.resize();}
  resize(){const rect=this.wrap.getBoundingClientRect(),f=fitBoard(rect.width,rect.height,W/H,window.devicePixelRatio);
   if(this.canvas.width===f.pixelWidth&&this.canvas.height===f.pixelHeight&&this.dpr===f.pixelRatio)return;
   const old=this.marks.width>1?makeCanvas():null;if(old){old.width=this.marks.width;old.height=this.marks.height;old.getContext('2d').drawImage(this.marks,0,0);}
@@ -28,16 +29,20 @@ export class Renderer{
  clearMarks(){const c=this.marks.getContext('2d');c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,this.marks.width,this.marks.height);this.previous=null;}
  // Layers: surface texture (per surface and size), relief (shading image and contour
  // heights, per material and terrain edit) and vector overlays, composited into base.
- rebuild(surface,wallMaterial,material='steel',openEdges=false){
-  this.view={surface,wallMaterial,material,openEdges};
+ // layout is the ball's (material and size); id names it for the relief caches.
+ rebuild(surface,wallMaterial,layout,openEdges,id,key){
+  this.view={surface,wallMaterial,layout,openEdges,id};
   if(this.textureKey!==`${surface}/${this.base.width}x${this.base.height}`)this.paintTexture(surface);
-  this.relief(material);this.composite();
-  this.rebuilds++;this.key=`${surface}/${wallMaterial}/${material}/${openEdges}`;
+  this.relief(layout,id);this.composite();
+  this.rebuilds++;this.key=key;
  }
+ // Walls, holes, start and goal are drawn from the level in base coordinates. A moved
+ // wall redraws only the given rectangle, or the whole board.
+ setLevel(level,rect=null){if(level===this.level)return;this.level=level;if(this.view)this.composite(rect);}
  // Sculpt: redraw only the relief under an edit (base coordinates), or all of it.
  terrainChanged(rect=null){
   if(!this.view)return;const m=.004,r=rect&&{x0:rect.x0-m,y0:rect.y0-m,x1:rect.x1+m,y1:rect.y1+m};
-  this.relief(this.view.material,r);this.composite(r);
+  this.relief(this.view.layout,this.view.id,r);this.composite(r);
  }
  paintTexture(surface){const c=this.texture.getContext('2d');c.setTransform(1,0,0,1,0,0);c.fillStyle='#101714';c.fillRect(0,0,this.texture.width,this.texture.height);this.transform(c);
   const palette=SURFACE_PALETTES[surface];
@@ -59,17 +64,16 @@ export class Renderer{
   }
   this.textureKey=`${surface}/${this.texture.width}x${this.texture.height}`;
  }
- composite(rect=null){const c=this.base.getContext('2d'),{surface,wallMaterial,openEdges}=this.view;
+ composite(rect=null){const c=this.base.getContext('2d'),{surface,wallMaterial,openEdges}=this.view,{start,goal,holes,walls,patches}=this.level;
   c.save();c.setTransform(1,0,0,1,0,0);
   if(rect){const x0=Math.floor(this.ox+rect.x0*this.scale),y0=Math.floor(this.oy+rect.y0*this.scale),x1=Math.ceil(this.ox+rect.x1*this.scale),y1=Math.ceil(this.oy+rect.y1*this.scale);c.beginPath();c.rect(x0,y0,x1-x0,y1-y0);c.clip();}
   c.drawImage(this.texture,0,0);this.transform(c);c.drawImage(this.shade,0,0,W,H);this.contours(c,surface,rect);
   c.textAlign='center';c.fillStyle=surface==='baize'?'#c4d2b2':'#263e36aa';c.font='500 .0045px system-ui';
-  c.strokeStyle=surface==='baize'?'#c4d2b266':'#263e3655';c.lineWidth=.0006;c.beginPath();c.arc(START.x,START.y,R+.003,0,Math.PI*2);c.stroke();
-  for(const h of HOLES){circle(c,h.x,h.y,h.r+.0017,'#ede0b950');circle(c,h.x,h.y,h.r+.001,'#5b472b');const g=c.createRadialGradient(h.x-.003,h.y-.004,.001,h.x,h.y,h.r);g.addColorStop(0,'#030908');g.addColorStop(.65,'#0e1915');g.addColorStop(1,'#364234');circle(c,h.x,h.y,h.r,g);c.beginPath();c.arc(h.x,h.y,h.r,Math.PI*.08,Math.PI*.85);c.strokeStyle='#e7d7a36b';c.lineWidth=.0008;c.stroke();}
-  circle(c,GOAL.x,GOAL.y,GOAL.r,surface==='baize'?'#b5914f55':'#416c5055');c.strokeStyle='#dcebc0';c.lineWidth=.0012;c.beginPath();c.arc(GOAL.x,GOAL.y,GOAL.r-.003,0,Math.PI*2);c.stroke();c.font='600 .005px system-ui';c.fillStyle='#f2f6dd';
-  const base=layoutFor('steel');
-  for(const patch of base.patches){c.save();c.beginPath();c.ellipse(patch.x,patch.y,patch.rx,patch.ry,-.15,0,Math.PI*2);c.clip();c.fillStyle=patch.kind==='sand'?'#d5b877bb':'#bd6d18aa';c.fillRect(patch.x-patch.rx,patch.y-patch.ry,patch.rx*2,patch.ry*2);c.strokeStyle=patch.kind==='sand'?'#f4db9b66':'#f5c75b88';c.lineWidth=.0008;c.stroke();c.restore();}
-  for(const w of openEdges?WALLS.filter(w=>w.kind!=='border'):WALLS){
+  c.strokeStyle=surface==='baize'?'#c4d2b266':'#263e3655';c.lineWidth=.0006;c.beginPath();c.arc(start.x,start.y,R+.003,0,Math.PI*2);c.stroke();
+  for(const h of holes){circle(c,h.x,h.y,h.r+.0017,'#ede0b950');circle(c,h.x,h.y,h.r+.001,'#5b472b');const g=c.createRadialGradient(h.x-.003,h.y-.004,.001,h.x,h.y,h.r);g.addColorStop(0,'#030908');g.addColorStop(.65,'#0e1915');g.addColorStop(1,'#364234');circle(c,h.x,h.y,h.r,g);c.beginPath();c.arc(h.x,h.y,h.r,Math.PI*.08,Math.PI*.85);c.strokeStyle='#e7d7a36b';c.lineWidth=.0008;c.stroke();}
+  circle(c,goal.x,goal.y,goal.r,surface==='baize'?'#b5914f55':'#416c5055');c.strokeStyle='#dcebc0';c.lineWidth=.0012;c.beginPath();c.arc(goal.x,goal.y,goal.r-.003,0,Math.PI*2);c.stroke();c.font='600 .005px system-ui';c.fillStyle='#f2f6dd';
+  for(const patch of patches){c.save();c.beginPath();c.ellipse(patch.x,patch.y,patch.rx,patch.ry,-.15,0,Math.PI*2);c.clip();c.fillStyle=patch.kind==='sand'?'#d5b877bb':'#bd6d18aa';c.fillRect(patch.x-patch.rx,patch.y-patch.ry,patch.rx*2,patch.ry*2);c.strokeStyle=patch.kind==='sand'?'#f4db9b66':'#f5c75b88';c.lineWidth=.0008;c.stroke();c.restore();}
+  for(const w of openEdges?walls.filter(w=>w.kind!=='border'):walls){
    const line=(dx,dy,width,col)=>{c.beginPath();w.points.forEach(([x,y],i)=>i?c.lineTo(x+dx,y+dy):c.moveTo(x+dx,y+dy));c.lineWidth=width;c.strokeStyle=col;c.lineCap='round';c.lineJoin='round';c.stroke();};
    line(w.height*.25,w.height*.4,w.kind==='low'?.0025:.005,'#10221b66');
    line(0,0,w.kind==='low'?.002:.004,wallMaterial==='rubber'?'#a54b3e':w.kind==='pocket'?'#503921':'#876439');
@@ -77,8 +81,8 @@ export class Renderer{
   }
   c.restore();
  }
- relief(material,rect=null){
-  const layout=layoutFor(material),scale=layout.scale,field=layout.terrain,IW=this.shade.width,IH=this.shade.height,ctx=this.shade.getContext('2d');
+ relief(layout,id,rect=null){
+  const scale=layout.scale,field=layout.terrain,IW=this.shade.width,IH=this.shade.height,ctx=this.shade.getContext('2d');
   this.pixels??=ctx.createImageData(IW,IH);const data=this.pixels.data;
   const px0=rect?Math.max(0,Math.floor(rect.x0/W*IW)):0,px1=rect?Math.min(IW,Math.ceil(rect.x1/W*IW)):IW,py0=rect?Math.max(0,Math.floor(rect.y0/H*IH)):0,py1=rect?Math.min(IH,Math.ceil(rect.y1/H*IH)):IH;
   for(let y=py0;y<py1;y++)for(let x=px0;x<px1;x++){
@@ -92,15 +96,15 @@ export class Renderer{
   if(px1>px0&&py1>py0)ctx.putImageData(this.pixels,0,0,px0,py0,px1-px0,py1-py0);
   // Contour heights on a 2.5 mm grid, on the same potential as the solver.
   const step=CONTOUR_STEP,ni=Math.ceil(W/step),nj=Math.ceil(H/step),at=(i,j)=>field.sample(Math.min(W,i*step)*scale,Math.min(H,j*step)*scale).h;
-  if(!this.heights||this.heightsMaterial!==material){this.heights=new Float64Array((ni+1)*(nj+1));this.heightsMaterial=material;rect=null;}
+  if(!this.heights||this.heightsId!==id){this.heights=new Float64Array((ni+1)*(nj+1));this.heightsId=id;rect=null;}
   const i0=rect?Math.max(0,Math.floor(rect.x0/step)):0,i1=rect?Math.min(ni,Math.ceil(rect.x1/step)):ni,j0=rect?Math.max(0,Math.floor(rect.y0/step)):0,j1=rect?Math.min(nj,Math.ceil(rect.y1/step)):nj;
   for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++)this.heights[j*(ni+1)+i]=at(i,j);
   // The interval is fixed per material from the unedited relief ((hi-lo)/8), so an
   // edit changes only its own contours.
-  if(!this.intervals.has(material)){let lo=Infinity,hi=-Infinity;for(let j=0;j<=nj;j++)for(let i=0;i<=ni;i++){const h=layout.pristine.sample(Math.min(W,i*step)*scale,Math.min(H,j*step)*scale).h;lo=Math.min(lo,h);hi=Math.max(hi,h);}this.intervals.set(material,(hi-lo)/8);}
+  if(!this.intervals.has(id)){let lo=Infinity,hi=-Infinity;for(let j=0;j<=nj;j++)for(let i=0;i<=ni;i++){const h=layout.pristine.sample(Math.min(W,i*step)*scale,Math.min(H,j*step)*scale).h;lo=Math.min(lo,h);hi=Math.max(hi,h);}this.intervals.set(id,(hi-lo)/8);}
  }
  contours(c,surface,rect){
-  const step=CONTOUR_STEP,ni=Math.ceil(W/step),nj=Math.ceil(H/step),hs=this.heights,interval=this.intervals.get(this.heightsMaterial),node=(i,j)=>hs[j*(ni+1)+i];
+  const step=CONTOUR_STEP,ni=Math.ceil(W/step),nj=Math.ceil(H/step),hs=this.heights,interval=this.intervals.get(this.heightsId),node=(i,j)=>hs[j*(ni+1)+i];
   const i0=rect?Math.max(0,Math.floor(rect.x0/step)-1):0,i1=rect?Math.min(ni-1,Math.ceil(rect.x1/step)):ni-1,j0=rect?Math.max(0,Math.floor(rect.y0/step)-1):0,j1=rect?Math.min(nj-1,Math.ceil(rect.y1/step)):nj-1;
   let lo=Infinity,hi=-Infinity;for(let j=j0;j<=j1+1;j++)for(let i=i0;i<=i1+1;i++){lo=Math.min(lo,node(i,j));hi=Math.max(hi,node(i,j));}
   c.lineWidth=.00035;c.strokeStyle=surface==='baize'?'#e2f5d049':'#293e3b59';
@@ -113,32 +117,33 @@ export class Renderer{
   }
  }
 
- mark(b){const s=layoutFor(b.material).scale,p={x:b.x/s,y:b.y/s};
+ mark(b){const s=(b.layout??layoutFor(b.material)).scale,p={x:b.x/s,y:b.y/s},rr=b.r/s;
   if(!b.grounded||!['sand','ice'].includes(b.contactSurface??b.surface)||(b.surface==='ice'&&b.slip<.02)){this.previous=null;return;}
-  const last=this.previous;this.previous=p;if(!last)return;const dist=Math.hypot(p.x-last.x,p.y-last.y);if(dist<.00002||dist>R*4)return;
+  const last=this.previous;this.previous=p;if(!last)return;const dist=Math.hypot(p.x-last.x,p.y-last.y);if(dist<.00002||dist>rr*4)return;
   const c=this.marks.getContext('2d');this.transform(c);c.lineCap='round';
   if((b.contactSurface??b.surface)==='sand'){
-   c.strokeStyle='#5f4a2833';c.lineWidth=R*.48;c.beginPath();c.moveTo(last.x,last.y);c.lineTo(p.x,p.y);c.stroke();
-   c.strokeStyle='#fff0c333';c.lineWidth=R*.12;c.beginPath();c.moveTo(last.x-.001,last.y-.001);c.lineTo(p.x-.001,p.y-.001);c.stroke();
-  }else{c.strokeStyle=`rgba(225,247,255,${Math.min(.28,.06+b.slip*.3)})`;c.lineWidth=R*.16;c.beginPath();c.moveTo(last.x,last.y);c.lineTo(p.x,p.y);c.stroke();}
+   c.strokeStyle='#5f4a2833';c.lineWidth=rr*.48;c.beginPath();c.moveTo(last.x,last.y);c.lineTo(p.x,p.y);c.stroke();
+   c.strokeStyle='#fff0c333';c.lineWidth=rr*.12;c.beginPath();c.moveTo(last.x-.001,last.y-.001);c.lineTo(p.x-.001,p.y-.001);c.stroke();
+  }else{c.strokeStyle=`rgba(225,247,255,${Math.min(.28,.06+b.slip*.3)})`;c.lineWidth=rr*.16;c.beginPath();c.moveTo(last.x,last.y);c.lineTo(p.x,p.y);c.stroke();}
  }
  draw(b,tilt,{phase,now,fallStarted,fallHole,restartMs,running,sculpt}){
-  const key=`${b.surface}/${b.wallMaterial}/${b.material}/${b.openEdges}`;if(key!==this.key)this.rebuild(b.surface,b.wallMaterial,b.material,b.openEdges);
+  const layout=b.layout??layoutFor(b.material),id=`${b.material}/${b.r}`,key=`${b.surface}/${b.wallMaterial}/${id}/${b.openEdges}`;if(key!==this.key)this.rebuild(b.surface,b.wallMaterial,layout,b.openEdges,id,key);
+  const {goal,holes}=this.level;
   if(running)this.mark(b);else this.previous=null;
   const c=this.ctx;c.setTransform(1,0,0,1,0,0);c.globalAlpha=1;c.drawImage(this.base,0,0);c.drawImage(this.marks,0,0);this.transform(c);
   // The light remains fixed. A small level gives an independent input cue.
   const lx=W/2,ly=.018,lr=.008;circle(c,lx,ly,lr,'#18392a77');c.strokeStyle='#eff5d388';c.lineWidth=.0004;c.beginPath();c.arc(lx,ly,lr,0,Math.PI*2);c.stroke();
   circle(c,lx+clamp(tilt.x/(b.tiltBudget??8),-1,1)*lr*.65,ly+clamp(tilt.y/(b.tiltBudget??8),-1,1)*lr*.65,.0022,'#eef5c8');
   if(b.openEdges){c.setLineDash([.003,.003]);c.strokeStyle='#233c3988';c.lineWidth=.0007;c.strokeRect(.0005,.0005,W-.001,H-.001);c.setLineDash([]);}
-  if(b.dwell>0){c.strokeStyle='#f1ffc0';c.lineWidth=.002;c.beginPath();c.arc(GOAL.x,GOAL.y,GOAL.r-.001,-Math.PI/2,-Math.PI/2+2*Math.PI*Math.min(1,b.dwell/GOAL_DWELL));c.stroke();}
-  const s=layoutFor(b.material).scale;let x=b.x/s,y=b.y/s,r=b.r/s,alpha=1;
+  if(b.dwell>0){c.strokeStyle='#f1ffc0';c.lineWidth=.002;c.beginPath();c.arc(goal.x,goal.y,goal.r-.001,-Math.PI/2,-Math.PI/2+2*Math.PI*Math.min(1,b.dwell/GOAL_DWELL));c.stroke();}
+  const s=layout.scale;let x=b.x/s,y=b.y/s,r=b.r/s,alpha=1;
   const lift=Math.max(0,b.z-b.r-b.groundHeight)/s,airGap=Math.max(0,b.supportGap??0)/s;
-  if(phase==='falling'){const t=clamp((now-fallStarted)/restartMs,0,1);if(fallHole!==null){const h=HOLES[fallHole];x+=(h.x-x)*t;y+=(h.y-y)*t;}else{x+=b.vx/s*t*.12;y+=b.vy/s*t*.12;}r*=1-.85*t;alpha=1-t;}
+  if(phase==='falling'){const t=clamp((now-fallStarted)/restartMs,0,1);if(fallHole!==null){const h=holes[fallHole];x+=(h.x-x)*t;y+=(h.y-y)*t;}else{x+=b.vx/s*t*.12;y+=b.vy/s*t*.12;}r*=1-.85*t;alpha=1-t;}
   // Mild perspective growth plus physical shadow separation communicates hops.
   r*=1+Math.min(.14,lift/.12);
   c.globalAlpha=alpha*.48*Math.exp(-airGap/.05);circle(c,x+.0015,y+.002,r*1.04+lift*.1,'#0a1712');
   x-=lift*.28;y-=lift*.42;
-  c.save();if(b.overHole!==null&&b.z<b.groundHeight){const h=HOLES[b.overHole];c.beginPath();c.arc(h.x,h.y,h.r,0,Math.PI*2);c.clip();}
+  c.save();if(b.overHole!==null&&b.z<b.groundHeight){const h=holes[b.overHole];c.beginPath();c.arc(h.x,h.y,h.r,0,Math.PI*2);c.clip();}
   c.globalAlpha=alpha*(b.z<b.groundHeight?clamp(1+(b.z-b.groundHeight)/b.r,.05,1):1);
   const g=c.createRadialGradient(x-r*.36,y-r*.42,r*.06,x,y,r);
   for(const [stop,col]of BALL_COLOURS[b.material])g.addColorStop(stop,col);circle(c,x,y,r,g);
@@ -153,9 +158,13 @@ export class Renderer{
  }
  // Keep-out rings (no edits inside) and the brush: solid ring at the dip radius
  // R/sqrt(5), dashed ring at the berm's outer edge R. Amber once an increment is limited.
- sculptOverlay(c,{zones,brush}){
+ sculptOverlay(c,{zones,brush,walls}){
   c.save();c.setLineDash([.002,.002]);c.lineWidth=.0006;c.strokeStyle='#f3e6c2aa';
   for(const z of zones){c.beginPath();c.arc(z.x,z.y,z.r0,0,Math.PI*2);c.stroke();}
+  // Walls tool: a round handle on each movable wall, and the wall being moved highlighted.
+  if(walls){c.setLineDash([]);
+   if(walls.active){c.beginPath();walls.active.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.lineWidth=.0022;c.lineCap='round';c.lineJoin='round';c.strokeStyle=walls.invalid?'#f0a24a':'#fff6dc';c.stroke();}
+   for(const [x,y] of walls.handles){c.beginPath();c.arc(x,y,.0055,0,Math.PI*2);c.fillStyle='#14221add';c.fill();c.lineWidth=.0012;c.strokeStyle='#fff6dc';c.stroke();}}
   if(brush){c.strokeStyle=brush.limited?'#f0a24a':brush.tool==='pile'?'#bfe3ff':'#fff6dc';c.lineWidth=.0008;c.setLineDash([.003,.003]);c.beginPath();c.arc(brush.x,brush.y,brush.R,0,Math.PI*2);c.stroke();
    c.setLineDash([]);c.lineWidth=.0014;c.beginPath();c.arc(brush.x,brush.y,brush.R/Math.sqrt(5),0,Math.PI*2);c.stroke();}
   c.restore();

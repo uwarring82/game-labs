@@ -5,7 +5,7 @@ const freeze=Object.freeze;
 export const BALLS=freeze({
   steel:freeze({name:'Steel',short:'STEEL',description:'Solid steel · long coast, firm rebounds',density:7900,radius:.005,inertiaRatio:2/5}),
   rubber:freeze({name:'Bouncy rubber',short:'RUBBER',description:'Solid rubber · grippy, lively rebounds',density:1100,radius:.005,inertiaRatio:2/5}),
-  pingpong:freeze({name:'Table tennis',short:'TABLE TENNIS',description:'Hollow shell · light, springy, air resistance matters most',mass:.0027,radius:.020,inertiaRatio:2/3}),
+  pingpong:freeze({name:'Table tennis',short:'TABLE TENNIS',description:'Hollow shell · light, springy, air resistance matters most',mass:.0027,radius:.020,inertiaRatio:2/3,shell:true}),
   cork:freeze({name:'Cork',short:'CORK',description:'Solid cork · soft contacts and short coast',density:240,radius:.005,inertiaRatio:2/5}),
   billiard:freeze({name:'Billiard',short:'BILLIARD',description:'Solid resin · substantial momentum, precise rolling',mass:.170,radius:.028575,inertiaRatio:2/5})
 });

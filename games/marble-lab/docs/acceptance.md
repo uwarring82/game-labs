@@ -51,9 +51,23 @@ Status: **draft, unendorsed**. Software evidence only.
 - [x] With no edits, regenerated relief-generation.json and relief-validation.json are byte-identical to a baseline generated before the change on the same machine (arm64, Node 25.9). The committed relief evidence is unchanged.
 - [x] Driven in headless Chrome with emulated touch: dig, pile, drag, undo, reset, Done, play, reload with autosave. No page errors.
 
+- [x] Movable walls and ball size:
+  - placement rules and rigid poses, including a way from start to goal for the largest ball;
+  - a moved wall is where the ball collides;
+  - undo, reset and reload restore wall poses;
+  - wall poses are saved apart from the strokes, which stage 07 shares;
+  - a bad saved pose drops only its own wall;
+  - mass and size scaling, and the 0.7 s summit time at every size;
+  - smaller balls are captured by holes more often and up to higher speeds, and the largest ball can't get stuck;
+  - resized layouts share the relief's cells and stay few;
+  - moved walls redraw locally.
+- [x] With the level as an input and nominal sizes, the regenerated relief evidence is byte-identical to the same-machine baseline.
+
 | Measurement | Phone 1 | Phone 2 |
 | --- | --- | --- |
 | Board width on screen; fingertip size on the board | Pending | Pending |
+| Walls tool: grabbing a wall and its handle with a finger; drag feel | Pending | Pending |
+| Ball size: smallest and largest balls visible and controllable | Pending | Pending |
 | Press and drag with the phone held: in-plane acceleration and tilt shift | Pending | Pending |
 | Hold-to-depth feel; brush ring and limit colour visible around the finger | Pending | Pending |
 | Brush tick time and frame intervals during a stroke; full redraw after undo | Pending | Pending |

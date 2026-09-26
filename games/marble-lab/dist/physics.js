@@ -21,17 +21,31 @@ export function gravity(tilt,maxTilt=MAX_TILT){
   const scale=length?G*Math.sin(theta)/length:0;
   return {x:scale*tilt.x,y:scale*tilt.y,z:-G*Math.cos(theta)};
 }
-const layouts=new Map();
-export function layoutFor(material='steel'){
-  if(layouts.has(material))return layouts.get(material);
-  const scale=BALLS[material].radius/R;
-  const layout=scaledLevel(BASE_LEVEL,scale,BALLS[material].inertiaRatio,BALLS[material].radius);
-  layouts.set(material,layout);return layout;
+// The level is an input: the relief by default, or an edited copy from Sculpt. Layouts
+// are cached per level object, material and ball radius. The board scale follows the
+// material's nominal radius, so a resized ball changes size relative to the board.
+const layouts=new WeakMap();
+export function layoutFor(material='steel',level=BASE_LEVEL,radius=BALLS[material].radius){
+  let cache=layouts.get(level);if(!cache)layouts.set(level,cache=new Map());
+  const key=material+'/'+radius;if(cache.has(key))return cache.get(key);
+  const nominal=radius===BALLS[material].radius,scale=BALLS[material].radius/R;
+  const layout=scaledLevel(level,scale,BALLS[material].inertiaRatio,radius,!nominal);
+  // Keep at most four resized layouts per level; nominal ones stay.
+  if(!nominal){const resized=[...cache.keys()].filter(k=>cache.get(k).resized);if(resized.length>=4)cache.delete(resized[0]);layout.resized=true;}
+  cache.set(key,layout);return layout;
 }
-export function newBall(material='steel',surface='wood',wallMaterial='wood',openEdges=false){
+// Up to 1.6x, every ball stays narrower than the holes (1.65 reference radii): a wider ball
+// would seat in a hole's rim for good, and the game has no stuck detector.
+export const BALL_SIZES=Object.freeze({min:.5,max:1.6});
+// size multiplies the material's nominal diameter. Solid balls keep their density; the
+// table-tennis shell keeps its wall, so its mass scales with area. The ball carries its
+// layout (not enumerable), and advance() uses it unless told otherwise.
+export function newBall(material='steel',surface='wood',wallMaterial='wood',openEdges=false,{level=BASE_LEVEL,size=1}={}){
   const p=BALLS[material];if(!p||!CONTACTS[material][surface]||!WALL_CONTACTS[material][wallMaterial])throw new Error('Unknown material or surface');
-  const r=p.radius,m=p.mass??4/3*Math.PI*r**3*p.density;
-  return {...layoutFor(material).start,z:r,vx:0,vy:0,vz:0,wx:0,wy:0,wz:0,q:[1,0,0,0],time:0,r,m,I:p.inertiaRatio*m*r*r,density:m/(4/3*Math.PI*r**3),material,surface,wallMaterial,openEdges,dwell:0,groundHeight:0,supportGap:0,normalLoad:m*G,contactSurface:surface,grounded:true,slip:0,regime:'rest',impacts:0,skipped:0,overHole:null};
+  if(!(size>=BALL_SIZES.min&&size<=BALL_SIZES.max))throw new Error('Ball size out of range');
+  const r=p.radius*size,m=p.mass!==undefined?p.mass*size**(p.shell?2:3):4/3*Math.PI*r**3*p.density,layout=layoutFor(material,level,r);
+  const b={...layout.start,z:r,vx:0,vy:0,vz:0,wx:0,wy:0,wz:0,q:[1,0,0,0],time:0,r,m,I:p.inertiaRatio*m*r*r,density:m/(4/3*Math.PI*r**3),material,surface,wallMaterial,openEdges,dwell:0,groundHeight:0,supportGap:0,normalLoad:m*G,contactSurface:surface,grounded:true,slip:0,regime:'rest',impacts:0,skipped:0,overHole:null};
+  Object.defineProperty(b,'layout',{value:layout,writable:true,configurable:true,enumerable:false});return b;
 }
 export function kineticEnergy(b){return .5*b.m*(b.vx*b.vx+b.vy*b.vy+b.vz*b.vz)+.5*b.I*(b.wx*b.wx+b.wy*b.wy+b.wz*b.wz);}
 export function contactVelocity(b,n){
@@ -145,7 +159,7 @@ export function airDrag(b,dt){
   const factor=1/(1+c*speed*dt/b.m);b.vx*=factor;b.vy*=factor;b.vz*=factor;
 }
 export function advance(b,tilt,dt,options={}){
-  const layout=options.layout??layoutFor(b.material),goal=layout.goal;
+  const layout=options.layout??b.layout??layoutFor(b.material),goal=layout.goal;
   const openEdges=options.openEdges??b.openEdges;
   const walls=options.walls??(openEdges?layout.walls.filter(w=>w.kind!=='border'):layout.walls),holes=options.holes??layout.holes;
   const field=options.terrain===false?flatTerrain:options.terrain??layout.terrain,finiteFloor=options.bounds!==false;
