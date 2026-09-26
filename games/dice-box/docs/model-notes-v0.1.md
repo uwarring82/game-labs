@@ -41,7 +41,7 @@ The in-page test therefore uses the vigorous shake from the aligned start, which
 
 ## 5. Rendering
 
-three.js r128 (UMD from cdnjs). Rounded-cube geometry built by projecting a subdivided box onto the inner box plus a 1.1 mm shell; pips are recessed-looking discs, Western layout (1–2–3 counter-clockwise, opposite faces sum to 7). Ivory acetate with clearcoat, one red die when five are in play; felt with noise texture and bump; two glass shells for edge thickness and a window reflection across the lid; a procedural studio environment for reflections; one directional lamp with soft shadows that stays on the room's ceiling by following the orientation estimate.
+three.js r128 (UMD build, vendored in `vendor/`; identical to the official release). Rounded-cube geometry built by projecting a subdivided box onto the inner box plus a 1.1 mm shell; pips are recessed-looking discs, Western layout (1–2–3 counter-clockwise, opposite faces sum to 7). Ivory acetate with clearcoat, one red die when five are in play; felt with noise texture and bump; two glass shells for edge thickness and a window reflection across the lid; a procedural studio environment for reflections; one directional lamp with soft shadows that stays on the room's ceiling by following the orientation estimate.
 
 ## 6. Sound and haptics
 

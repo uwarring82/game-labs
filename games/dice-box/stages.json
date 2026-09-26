@@ -1,0 +1,16 @@
+{
+  "title": "Dice Box",
+  "tagline": "Up to five fair dice in a glass box. The box is the phone: shake it and the dice fly, tilt it and they slide.",
+  "status": "Prototype v0.1: draft, not yet endorsed. Engine checks pass; real-phone testing is pending.",
+  "source": ".",
+  "stages": [
+    {
+      "id": "01-prototype",
+      "commit": "bfceb7fa619398e0e2cbbd0941dd58d1819013f9",
+      "path": "games/dice-box",
+      "date": "2026-09-26T10:42:00+02:00",
+      "title": "Prototype v0.1",
+      "summary": "Up to five 16 mm dice on felt under glass. The phone's measured acceleration and rotation drive the box frame directly, with no gesture detection. Rigid-cube contact engine at 480 Hz, an in-page fairness test, and drag-to-shake on a computer."
+    }
+  ]
+}

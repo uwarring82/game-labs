@@ -2,7 +2,7 @@
 
 Up to five fair dice in a glass box with a felt floor. The box is the phone: shake it and the dice fly, tilt it and they slide, hold it still and they settle where the physics puts them. Browser only, no install.
 
-Prototype v0.1 (25 September 2026). Sibling of Marble Lab; shares its input philosophy (the phone's measured motion drives the world frame, no gesture detection).
+Prototype v0.1 (25 September 2026). Part of [Game Labs](../../README.md): the current build and every development stage are playable at https://uwarring82.github.io/game-labs/dice-box/. Sibling of Marble Lab; shares its input philosophy (the phone's measured motion drives the world frame, no gesture detection).
 
 ## Run
 
@@ -27,7 +27,7 @@ three.js r128 is vendored in `vendor/` (MIT, licence alongside), so the page run
 
 ## Tests
 
-    node test/engine.test.js
+    node test/engine.test.js    # or: npm test
 
 Ten checks, about five seconds: rest, stacking, toss, sliding vs holding on a tilt, rotation transport of an airborne die, containment at the velocity cap, two fairness runs (χ² on 200 faces), determinism.
 

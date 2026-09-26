@@ -140,7 +140,8 @@ rmSync(OUT, {recursive: true, force: true});
 const head = git('rev-parse', 'HEAD').toString().trim();
 const games = readdirSync(join(ROOT, 'games'), {withFileTypes: true})
   .filter(d => d.isDirectory() && existsSync(join(ROOT, 'games', d.name, 'stages.json')))
-  .map(d => ({game: d.name, config: JSON.parse(readFileSync(join(ROOT, 'games', d.name, 'stages.json'), 'utf8'))}));
+  .map(d => ({game: d.name, config: JSON.parse(readFileSync(join(ROOT, 'games', d.name, 'stages.json'), 'utf8'))}))
+  .sort((a, b) => Date.parse(a.config.stages[0].date) - Date.parse(b.config.stages[0].date)); // oldest game first
 
 for (const {game, config} of games) {
   console.log(game);
