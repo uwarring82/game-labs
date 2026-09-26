@@ -10,6 +10,7 @@ This record summarizes the development in the Marble Lab conversation. The six o
 | 25 September 2026, 19:32 | `54809a89744c4e75db3b70ea43d8f13b46fb00d8` | Screen space, look and sound |
 | 25 September 2026, 20:39 | `13568f21749b6e01be77e9b194b6fbe31719d3ad` | Terrain dynamics and open edges |
 | 25 September 2026, 22:17 | `cb911113a7319285f88ae9508359cb9d87630180` | Relief v0.1 draft |
+| 26 September 2026, 13:09 | `2dd6400ee314a673591f651b298c9bb000df88a3` | Sculpt v0.1 draft |
 
 ## Initial tilt maze
 
