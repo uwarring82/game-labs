@@ -1,0 +1,56 @@
+{
+  "title": "Marble Lab",
+  "tagline": "Tilt the phone and a physically modelled ball rolls, slips, bounces and falls through a landscape.",
+  "status": "Relief v0.1: draft, not yet endorsed. Automated checks pass; real-phone validation is pending.",
+  "source": "dist",
+  "stages": [
+    {
+      "id": "01-tilt-maze",
+      "commit": "b89157084a741a984640a33b799ba7664cb23aab",
+      "path": "dist",
+      "date": "2026-09-25T17:54:00+02:00",
+      "title": "Initial tilt maze",
+      "summary": "One top-down maze. Tilt sets acceleration, not velocity, so momentum and counter-tilt braking matter. Pitched-neutral calibration, touch and keyboard fallback, fixed physics step and sensor diagnostics."
+    },
+    {
+      "id": "02-material-physics",
+      "commit": "4f8ae65448826abe7d5612a3131601af7bdbc02f",
+      "path": "dist",
+      "date": "2026-09-25T18:31:00+02:00",
+      "title": "Material physics",
+      "summary": "Real ball dimensions, mass and inertia. Contact friction, rolling loss, restitution and spin, so steel and rubber behave differently on wood and sand. Hole capture depends on speed and geometry."
+    },
+    {
+      "id": "03-material-combinations",
+      "commit": "3b37b4141c75175e530f03306e058480bad9f9f5",
+      "path": "dist",
+      "date": "2026-09-25T19:06:00+02:00",
+      "title": "Expanded material combinations",
+      "summary": "Ice with slip and re-grip, hollow table-tennis balls with visible drag, low-rebound cork, billiard reference coefficients, and wall material chosen independently of the floor."
+    },
+    {
+      "id": "04-look-and-sound",
+      "commit": "54809a89744c4e75db3b70ea43d8f13b46fb00d8",
+      "path": "dist",
+      "date": "2026-09-25T19:32:00+02:00",
+      "title": "Screen space, look and sound",
+      "summary": "Portrait board scaling, safe areas and an installable web app. Procedural surfaces, spin marks and shadows. Web Audio rolling and impact sounds, optional haptics."
+    },
+    {
+      "id": "05-terrain",
+      "commit": "13568f21749b6e01be77e9b194b6fbe31719d3ad",
+      "path": "dist",
+      "date": "2026-09-25T20:39:00+02:00",
+      "title": "Terrain dynamics and open edges",
+      "summary": "A smooth heightfield feeds slope and curvature into the contact model. Crests can launch the ball, the summit needs a three-second hold, and open edges let the ball fall off the board."
+    },
+    {
+      "id": "06-relief",
+      "commit": "cb911113a7319285f88ae9508359cb9d87630180",
+      "path": "dist",
+      "date": "2026-09-25T22:17:00+02:00",
+      "title": "Relief v0.1 (draft)",
+      "summary": "A generated landscape with passes, drainage holes, curved walls, a trap pocket, sand, resin and a goal summit. Optional full-motion input from measured phone acceleration. A bot rejects levels it cannot finish."
+    }
+  ]
+}
