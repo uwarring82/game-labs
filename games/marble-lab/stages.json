@@ -67,6 +67,14 @@
       "date": "2026-09-26T18:37:00+02:00",
       "title": "Movable walls and ball size",
       "summary": "Move or turn the low wall and the pocket wall in the build phase, as long as a way to the goal remains. Choose the ball size, 0.5–1.6× its nominal diameter, against a board that keeps its size: smaller balls drop into holes more often. The physics now takes the level as an input."
+    },
+    {
+      "id": "09-open-board",
+      "commit": "5f8cb6c2c33587a6632db267b9ad883bb232a333",
+      "path": "games/marble-lab/dist",
+      "date": "2026-09-26T21:25:00+02:00",
+      "title": "Open board and movable objects",
+      "summary": "The game opens on a flat, empty board to build a course on; Saddle and Basin remains as a second board. Every object except the border moves; walls turn and stretch, holes, patches and the goal ring resize, and walls, holes, sand and resin can be added or removed, as long as every ball size can still reach the goal."
     }
   ]
 }
