@@ -59,6 +59,14 @@
       "date": "2026-09-26T13:09:00+02:00",
       "title": "Sculpt v0.1 (draft)",
       "summary": "Reshape the board in a build phase: press to dig a hollow with a raised rim or to pile ground up, hold to deepen, drag to plough. Slopes and curvature stay within the contact model's bounds; the start, goal and holes stay untouched. Edited boards are labelled and unchecked."
+    },
+    {
+      "id": "08-walls-and-size",
+      "commit": "9adb478563fec33cdb7db43d4bbd0bb937ae7968",
+      "path": "games/marble-lab/dist",
+      "date": "2026-09-26T18:37:00+02:00",
+      "title": "Movable walls and ball size",
+      "summary": "Move or turn the low wall and the pocket wall in the build phase, as long as a way to the goal remains. Choose the ball size, 0.5–1.6× its nominal diameter, against a board that keeps its size: smaller balls drop into holes more often. The physics now takes the level as an input."
     }
   ]
 }
