@@ -1,7 +1,7 @@
 {
   "title": "Dice Box",
   "tagline": "Up to five fair dice in a glass box. The box is the phone: shake it and the dice fly, tilt it and they slide.",
-  "status": "Prototype v0.1: draft, not yet endorsed. Engine checks pass; real-phone testing is pending.",
+  "status": "v0.2: draft, not yet endorsed. Realistic dice, a loaded die, breakable glass. Engine checks pass; real-phone testing is pending.",
   "source": ".",
   "stages": [
     {

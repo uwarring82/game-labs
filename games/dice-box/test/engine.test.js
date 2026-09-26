@@ -1,4 +1,4 @@
-// Dice Box — headless engine checks.  Run:  node test/engine.test.js
+// Dice Box — headless engine checks.  Run:  node test/engine.test.js  (or npm test)
 // No framework: each check prints PASS/FAIL and the process exits non-zero on any failure.
 'use strict';
 const P = require('../src/phys.js');
@@ -79,5 +79,46 @@ const chi2 = counts => { const n = counts.reduce((a, b) => a + b, 0), E = n / 6;
     while (t < 3) { const s = sh(t); w.G = s.G; w.al = s.om.map((v, i) => (v - om0[i]) / DT); w.om = s.om; om0 = s.om; w.step(); t += DT; } return w.readFaces().map(f => f.value).join(''); };
   check('determinism: identical seeds, identical faces', once(5) === once(5), once(5)); }
 
-console.log(failures ? `\n${failures} check(s) failed` : '\nall checks passed');
-process.exit(failures ? 1 : 0);
+// 11. Zero load is the uniform cube: a loaded-die setting of 0 changes nothing, bit for bit.
+{ const once = load => { const rng = mulberry32(9), w = new World(); w.setCount(5); if (load) w.setLoad(1, 6, 0); const sh = makeShake(rng, 40, 1.0, [0, 0, -G0], 8); let om0 = [0, 0, 0], t = 0;
+    while (t < 2) { const s = sh(t); w.G = s.G; w.al = s.om.map((v, i) => (v - om0[i]) / DT); w.om = s.om; om0 = s.om; w.step(); t += DT; } return w.dice.map(d => d.p.concat(d.q).join()).join(); };
+  check('zero load: identical to the uniform cube', once(true) === once(false)); }
+
+// 12. A fully loaded die rests flat like the others: the geometric centre, not the centre of mass, meets the felt.
+{ const w = new World(); w.setCount(5); w.setLoad(1, 6, P.LOAD_MAX); run(w, 1);
+  const z = w.dice.map(d => d.center()[2] * 1000), com = w.dice[1].p[2] * 1000;
+  check('loaded die at rest: sits flat, no sinking', w.allAsleep() && z.every(v => Math.abs(v + 10) < 0.2) && w.readFaces().every(f => f.value === 1),
+    'centre z = ' + z.map(v => v.toFixed(2)).join(' ') + ' mm, loaded centre of mass ' + com.toFixed(2) + ' mm'); }
+
+// 13. Free rotation of a loaded (non-isotropic) die, centre of mass at the box centre (at half load the corners stay clear):
+//     energy follows the spin damping, L keeps its direction, and the load axis precesses about L at |L|/I_transverse
+//     (analytic torque-free top). A uniform cube would instead turn about ω at |ω|; the spin is chosen so the two differ.
+{ const w = new World(); w.setCount(1); w.setLoad(0, 6, P.LOAD_MAX / 2); const d = w.dice[0]; w.G = [0, 0, 0]; d.p = [0, 0, 0]; d.w = [10, 0, 25]; let hits = 0; w.onImpact = () => hits++;
+  const dot3 = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2], ang = (a, b) => Math.acos(Math.min(1, dot3(a, b) / Math.hypot(...a) / Math.hypot(...b))) * 180 / Math.PI;
+  const L = () => [0, 1, 2].map(i => d.A.reduce((s, a, k) => s + a[i] * dot3(a, d.w) * d.I[k], 0)), E = () => dot3(L(), d.w);
+  const turn = (v, axis, phi) => { const k = axis.map(x => x / Math.hypot(...axis)), c = Math.cos(phi), s = Math.sin(phi), kv = dot3(k, v);   // Rodrigues
+    return [0, 1, 2].map(i => v[i] * c + [k[1] * v[2] - k[2] * v[1], k[2] * v[0] - k[0] * v[2], k[0] * v[1] - k[1] * v[0]][i] * s + k[i] * kv * (1 - c)); };
+  const E0 = E(), L0 = L(), w0 = d.w.slice(), axis0 = d.A[2].slice(), T = 0.25, n = Math.round(T / DT); for (let k = 0; k < n; k++) w.step();
+  const damp = (1 - 0.05 * DT) ** (2 * n), dE = E() / E0 / damp - 1, decay = (1 - Math.exp(-0.05 * T)) / 0.05;
+  const top = turn(axis0, L0, Math.hypot(...L0) / d.I[0] * decay), cube = turn(axis0, w0, Math.hypot(...w0) * decay);
+  check('loaded die, free rotation: energy and L conserved, precession as a torque-free top', hits === 0 && Math.abs(dE) < 1e-3 && ang(L0, L()) < 0.5 && ang(d.A[2], top) < 2 && ang(d.A[2], cube) > 10,
+    'energy ' + (dE * 100).toFixed(3) + ' %, L turned ' + ang(L0, L()).toFixed(2) + '°, load axis ' + ang(d.A[2], top).toFixed(2) + '° from the top solution, ' + ang(d.A[2], cube).toFixed(0) + '° from a uniform cube'); }
+
+// 15. Shattered box: level, the dice stay on the felt pad; tilted 30° (felt μ = 0.5 < tan 30°) they slide off its edge and are
+//     gone. restore() brings back the glass and all dice, 1 up.
+{ const w = new World(); w.setCount(5); run(w, 0.5); w.shatter(); run(w, 1); const levelGone = w.dice.filter(d => d.gone).length;
+  w.G = [G0 * Math.sin(Math.PI / 6), 0, -G0 * Math.cos(Math.PI / 6)]; run(w, 3); const tiltGone = w.dice.filter(d => d.gone).length;
+  w.restore(); w.G = [0, 0, -G0]; run(w, 1);
+  check('shattered box: dice stay while level, slide off when tilted; restore brings them back', levelGone === 0 && tiltGone === 5 && w.intact && w.allAsleep() && w.readFaces().every(f => f && f.value === 1),
+    'gone while level ' + levelGone + '/5, after 3 s at 30° ' + tiltGone + '/5'); }
+
+// 14. A fully loaded die favours its face; the four fair dice in the same box stay fair. Load under the 5, favouring 2.
+{ P.fairness(200, 3, null, { index: 1, favored: 2, fraction: P.LOAD_MAX }).then(r => {
+    const d = r.perDie[1], nd = d.reduce((a, b) => a + b, 0), fair = [0, 2, 3, 4].map(i => r.perDie[i]).reduce((a, x) => a.map((v, k) => v + x[k]));
+    check('loaded die favours 2 (P > 25 %, χ²(5) > 20.5); fair dice χ²(5) < 20.5', d[1] / nd > 0.25 && chi2(d) > 20.5 && chi2(fair) < 20.5,
+      'loaded ' + d.join(' ') + ' (P(2) = ' + (100 * d[1] / nd).toFixed(1) + ' %, χ² = ' + chi2(d).toFixed(1) + '), fair dice χ² = ' + chi2(fair).toFixed(1));
+    finish(); }); }
+
+function finish() {
+  console.log(failures ? `\n${failures} check(s) failed` : '\nall checks passed');
+  process.exit(failures ? 1 : 0); }

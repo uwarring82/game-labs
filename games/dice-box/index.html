@@ -41,13 +41,15 @@
   button.ghost{border-color:var(--line);background:var(--glass);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
   button.on{border-color:var(--sea-2);color:#cfe3ee}
   .readout{display:flex;flex-direction:column;gap:3px;min-width:110px}
-  .readout .faces{font-size:18px;letter-spacing:.12em;font-variant-numeric:tabular-nums;white-space:nowrap;min-height:22px}
-  .readout .faces b{font-weight:500;color:#cfe3ee}
-  .readout .faces .q{color:var(--signal)}
+  .readout .faces{display:flex;align-items:center;gap:5px;font-size:18px;font-variant-numeric:tabular-nums;white-space:nowrap;min-height:24px}
+  .readout .faces b{font-weight:500;color:#cfe3ee;margin-left:4px}
+  .readout .faces .q{color:var(--signal);font-size:13px;margin-left:4px}
+  .die{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;font:600 15px/1 var(--mono);font-style:normal;box-shadow:inset 0 0 0 1px rgba(245,240,232,.3),0 1px 2px rgba(0,0,0,.45)}
+  .chip{display:inline-block;width:14px;height:14px;border-radius:3px;vertical-align:middle;box-shadow:inset 0 0 0 1px rgba(245,240,232,.35)}
   .readout .state{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--stone-2);min-height:13px;white-space:nowrap}
   .actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
   .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(26,26,26,.86);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);z-index:10;padding:24px 16px}
-  .card{max-width:360px;width:100%;display:flex;flex-direction:column;gap:14px;background:var(--ink-2);border:1px solid var(--line);border-radius:14px;padding:22px 20px}
+  .card{max-width:360px;width:100%;max-height:100%;overflow-y:auto;display:flex;flex-direction:column;gap:14px;background:var(--ink-2);border:1px solid var(--line);border-radius:14px;padding:22px 20px}
   .card h2{font:600 30px/1.05 var(--serif);margin:0;text-wrap:balance}
   .card p{font:400 16px/1.4 var(--serif);margin:0;color:#d8d2c7}
   .card p.small{font:400 11.5px/1.5 var(--mono);color:var(--stone-2)}
@@ -60,6 +62,8 @@
   .bar i{display:block;height:100%;background:var(--sea-2);width:0%;transition:width .12s}
   #debug{position:fixed;left:16px;top:calc(env(safe-area-inset-top,0px) + 62px);font-size:10.5px;line-height:1.5;color:var(--stone-2);white-space:pre;pointer-events:none;z-index:3;font-variant-numeric:tabular-nums}
   .hint{font-size:11px;color:var(--stone-2);letter-spacing:.04em}
+  input[type=range]{flex:1;min-width:120px;accent-color:var(--sea-2)}
+  .card h3{font:600 19px/1.1 var(--serif);margin:4px 0 -6px}
   select{font:500 12.5px var(--mono);color:var(--parchment);background:var(--ink-2);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
   @media (prefers-reduced-motion:reduce){ .bar i{transition:none} }
   @media (max-width:420px){ .brand h1{font-size:20px} .readout .faces{font-size:16px} button{padding:8px 11px} }
@@ -80,7 +84,8 @@
   <div class="actions">
     <button class="ghost" id="shake" hidden>Shake</button>
     <button class="ghost" id="toss" hidden>Toss</button>
-    <button class="ghost" id="fair">Fairness</button>
+    <button class="ghost" id="newBox" hidden>New box</button>
+    <button class="ghost" id="setup">Setup</button>
     <button class="ghost on" id="sound" aria-pressed="true">Sound</button>
     <button class="ghost" id="info" aria-pressed="false">i</button>
   </div>
@@ -97,13 +102,29 @@
   </div>
 </div>
 
+<div class="overlay" id="setupPanel" hidden>
+  <div class="card">
+    <h2>Setup</h2>
+    <h3>Loaded die</h3>
+    <p class="small">A dense plate under one face moves the die's centre of mass towards that face, so the opposite face tends to come up. The die still weighs 4.5 g and looks the same.</p>
+    <div class="row"><label for="loadDie" class="hint">Die</label><select id="loadDie"></select><label for="loadFace" class="hint">favours</label><select id="loadFace"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option selected>6</option></select></div>
+    <div class="row"><label for="loadLevel" class="hint">Load</label><input type="range" id="loadLevel" min="0" max="100" step="5" value="50"><span class="hint" id="loadLevelValue"></span></div>
+    <p class="small" id="loadText"></p>
+    <h3>Glass</h3>
+    <p class="small">The box shatters when the phone's acceleration (what the accelerometer reads, gravity included) stays above the limit for 25 ms. Slide to the right end for unbreakable glass.</p>
+    <div class="row"><label for="glassLimit" class="hint">Breaks at</label><input type="range" id="glassLimit" min="2" max="13" step="0.5" value="8"><span class="hint" id="glassValue"></span></div>
+    <p class="small" id="peakText">Strongest so far: 1.0 g (at rest: 1.0 g).</p>
+    <div class="row"><button class="ghost" id="openFair">Fairness test…</button><button class="ghost" id="closeSetup">Close</button></div>
+  </div>
+</div>
+
 <div class="overlay" id="fairPanel" hidden>
   <div class="card">
     <h2>Fairness</h2>
-    <p class="small">Each throw starts with every die showing 1, shakes the box hard for 2 s (random accelerations to 50 m/s², rotations to 16 rad/s), then lets the dice settle. Faces are pooled across dice. A fair engine gives a flat count; χ² has 5 degrees of freedom. A gentle shake is not a fair throw here or on a table: dice that are only slid keep their face.</p>
+    <p class="small">Each throw starts with every die showing 1, shakes the box hard for 2 s (random accelerations to 50 m/s², rotations to 16 rad/s), then lets the dice settle. The loaded die from Setup takes part. Counts are per die; a fair die gives a flat column, and χ² has 5 degrees of freedom. A gentle shake is not a fair throw here or on a table: dice that are only slid keep their face.</p>
     <div class="row"><label for="nThrows" class="hint">Throws</label><select id="nThrows"><option value="40">40</option><option value="80" selected>80</option><option value="200">200</option></select><button class="primary" id="runFair">Run</button><button class="ghost" id="closeFair">Close</button></div>
     <div class="bar"><i id="fairBar"></i></div>
-    <table id="fairTable"><thead><tr><th>Face</th><th>Count</th><th>Expected</th><th>Share</th></tr></thead><tbody id="fairBody"><tr><td colspan="4" style="text-align:left;color:var(--stone-2)">No run yet.</td></tr></tbody></table>
+    <table id="fairTable"><thead id="fairHead"></thead><tbody id="fairBody"><tr><td colspan="7" style="text-align:left;color:var(--stone-2)">No run yet.</td></tr></tbody></table>
     <p class="small" id="fairStats"></p>
   </div>
 </div>
