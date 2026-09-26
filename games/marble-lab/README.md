@@ -6,14 +6,14 @@ Mobile browser game, static HTML/CSS/ES modules, no runtime dependencies or sens
 
 ## Play
 
-Enable tilt → permit motion → hold a comfortable pose → Calibrate → Play. Materials & play offers Motion: tilt only / full and a comfortable tilt limit, default 8° (4–15°). Full motion applies device linear acceleration directly. A persistent play-time button switches back to tilt only. Touch and keyboard supply tilt only. No gesture, toss, shake or stuck-state detectors exist.
+Enable tilt → permit motion → hold a comfortable pose → Calibrate → Play. Materials & play offers Motion: tilt only / full and a comfortable tilt limit, default 8° (4–15°). Full motion applies device linear acceleration directly. Calibration also measures the sign of the phone's gravity reading (iPhones report it reversed); if the reading matches neither sign, full motion stays off and the settings say why. A persistent play-time button switches back to tilt only. Touch and keyboard supply tilt only. No gesture, toss, shake or stuck-state detectors exist.
 
 Saddle and Basin is the sole playable level: continuous relief, drainage holes, three to five passes, a low curved wall, a walled dip, a sandy pothole, resin and a goal summit. Hold the whole ball inside the goal ring for three simulated seconds (centre within 2r). Open edges removes the outer walls and preserves the finite board drop/restart.
 
 ## Sources and modules
 
 - `dist/physics.js`: sphere translation/spin, unilateral surface contact, finite-height polyline curtains/top rims, Coulomb grip/slip, local rolling and torsional loss, granular load, ballistic flight, hole/edge capture, goal dwell, fixed clock.
-- `dist/motion.js`: orientation-derived specific-force subtraction, screen mapping, event-time alignment, held samples, 3g vector cap, stale-sample expiry, diagnostic recording. Does not use DeviceMotionEvent.acceleration. Specific force is +g along z at face-up rest.
+- `dist/motion.js`: orientation-derived specific-force subtraction, screen mapping, event-time alignment, held samples, 3g vector cap, stale-sample expiry, diagnostic recording. Does not use DeviceMotionEvent.acceleration. Specific force is +g along z at face-up rest in the spec and −g on iPhone (WebKit); the sign is measured at calibration, not inferred from the browser.
 - `dist/terrain.js`: C1 bicubic Hermite field, its consistent gradient/Hessian, normal-offset sphere geometry. Older compact terrain survives only as a test fixture.
 - `dist/landscape.js`: seeded Gaussian/warped landscape, slope/crest-bounded construction, topology and gradient-flow drainage, local patches, material scaling and 0.7 s goal-curvature reference.
 - `dist/relief-config.js`: generator-selected seed; no second level selector.
@@ -29,7 +29,7 @@ Saddle and Basin is the sole playable level: continuous relief, drainage holes, 
 
 Acceptance scope is all five balls on hardwood, not every whole-board floor swap. Trials perturb initial position; they are not a phone latency/noise model or independent human trials. Bot acceleration is allowed only inside declared jump regions. It supplies acceleration waveforms, never a ball velocity or jump flag. The 0.65√s m/s carried-speed fixture is stronger than the task card's illustrative 0.4 m/s motion, for a physically sufficient finite-stop jump.
 
-`npm test` runs 93 checks. Forty legacy maze routes remain as non-playable regression fixtures for material mechanics. Relief has its own acceptance trials and tests for gravity removal, sample holds, finite-stop toss, load-dependent grip, 3×3 jump table, resin, confinement, drainage and summit tuning. Drawing/audio tests use API doubles, not actual pixels or listening.
+`npm test` runs 96 checks. Forty legacy maze routes remain as non-playable regression fixtures for material mechanics. Relief has its own acceptance trials and tests for gravity removal, the gravity sign check (including a recorded iPhone export), sample holds, finite-stop toss, load-dependent grip, 3×3 jump table, resin, confinement, drainage and summit tuning. Drawing/audio tests use API doubles, not actual pixels or listening.
 
 `node scripts/write-model-notes.mjs` regenerates the notes and coefficient ledger from the active code and acceptance record. Run after validation. The publish sequence also checks JavaScript syntax, DOM wiring and local asset references.
 

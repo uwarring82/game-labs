@@ -48,3 +48,9 @@ Added this readable development record, design decisions, acceptance checklist a
 Moved into the public Game Labs repository at `games/marble-lab/`. The seven earlier commits were imported unchanged, so the commit IDs above still resolve. GitHub Pages now publishes the current build and each milestone above as a playable development stage, extracted from these commits (`stages.json`).
 
 The web-app manifest's `id`, `start_url` and `scope` are now `./` instead of `/`, so the game also runs under a subpath such as GitHub Pages. At a site root the two are equivalent. No game code changed. Both physical-phone measurements remain pending.
+
+## iPhone gravity sign — 26 September 2026
+
+The first real-phone test (iPhone, Safari) showed full motion reading about −2g upward at rest, which threw the ball off the board. Cause: the W3C specification and Android report `accelerationIncludingGravity` as +g along the upward screen normal, but WebKit passes Core Motion's opposite sign through unchanged, so every iPhone browser reports all three axes reversed. The game subtracted spec-convention gravity, doubling it instead of removing it. Tilt only was unaffected.
+
+Calibration now measures the convention. During the hold-still window, the mean reading is compared with the gravity predicted from β/γ. A match within 0.1g directly or negated sets the sign for later samples. Anything else, or no readings, turns full motion off with an explanation, and tilt-only continues to work. Diagnostics show the detected sign and the rest residual, and motion exports (schema v0.2) include both. Three new tests cover the check, both conventions at four screen rotations, and 30 samples from the recorded iPhone export (rest residual below 0.1 m/s² after correction). Physical-phone acceptance remains pending.

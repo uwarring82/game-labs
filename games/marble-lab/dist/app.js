@@ -124,9 +124,9 @@ async function enableTilt() {
 function calibrate() {
   if (!latest || mode !== 'tilt' || calibrationSamples) return;
   pause('Calibration complete. Press Resume when ready.');
-  calibrationSamples = [{beta:latest.beta,gamma:latest.gamma}]; status('Hold still for a moment…'); updateControls();
+  calibrationSamples = [{beta:latest.beta,gamma:latest.gamma}]; motion.beginGravityCheck(); status('Hold still for a moment…'); updateControls();
   setTimeout(() => {
-    const samples = calibrationSamples; calibrationSamples = null;
+    const samples = calibrationSamples, gravity = motion.endGravityCheck(); calibrationSamples = null;
     if (!samples || mode !== 'tilt' || document.hidden) return updateControls();
     const base = samples[0];
     const diff = (a,b) => ((a-b+540)%360)-180;
@@ -138,8 +138,15 @@ function calibrate() {
     const spread = Math.max(...samples.map(v=>Math.hypot(diff(v.beta,beta),diff(v.gamma,gamma))));
     if (spread > 3) { status('The phone moved during calibration. Hold still and try again.'); updateControls(); return; }
     neutral = {beta,gamma}; smooth = {x:0,y:0}; raw = {x:0,y:0};
-    status('Calibrated. Tilt to accelerate; counter-tilt to brake.'); updateControls();
+    // The same hold-still window measures the phone's gravity sign; full motion needs a match.
+    motion.useConvention(gravity);
+    const fullOff = !motion.verified && motionMode === 'full'; if (fullOff) motionMode = 'tilt';
+    status(fullOff ? `Calibrated for tilt. ${gravityProblem()} Full motion is off.` : 'Calibrated. Tilt to accelerate; counter-tilt to brake.'); updateControls();
   }, 450);
+}
+function gravityProblem() {
+  const c = motion.convention;
+  return c.verdict === 'no-data' ? 'No acceleration readings arrived during calibration.' : c.verdict === 'inconsistent' ? `At rest, acceleration was ${c.residual.toFixed(1)} m/s² away from what the phone’s angle predicts.` : '';
 }
 function orientationChanged() {
   const next = screenAngle(); if (orientation === next) return; orientation = next;
@@ -230,6 +237,7 @@ function updateRaw() {
   raw.x=clamp(raw.x,-45,45);raw.y=clamp(raw.y,-45,45);
 }
 function filter(dt) {smooth.x=filtered(smooth.x,raw.x,dt,tau);smooth.y=filtered(smooth.y,raw.y,dt,tau);}
+const GRAVITY_SIGN={unchecked:'Not checked; calibrate',spec:'Spec: face-up reads +g',reversed:'Reversed: face-up reads −g, corrected','no-data':'No readings at calibration; full motion off',inconsistent:'Matches neither sign; full motion off'};
 function diagnostics(now) {
   const width=trace.width,height=trace.height;tc.clearRect(0,0,width,height);tc.strokeStyle='#304438';tc.lineWidth=1;
   for(const y of [height*.15,height*.5,height*.85]){tc.beginPath();tc.moveTo(0,y);tc.lineTo(width,y);tc.stroke();}
@@ -238,8 +246,8 @@ function diagnostics(now) {
     for(const v of graph){const x=width*(1-(now-v.t)/5000);if(x<0)continue;const y=height/2-clamp(v[key],-35,35)*height/70;if(first){tc.moveTo(x,y);first=false;}else tc.lineTo(x,y);}tc.stroke();
   }tc.setLineDash([]);
   const avg=recentDts.length?recentDts.reduce((a,b)=>a+b,0)/recentDts.length:0;
-  const a=motion.last;
-  const values=[['Motion mode',motionMode],['Acceleration X / Y / up',`${a.x.toFixed(2)} / ${a.y.toFixed(2)} / ${a.z.toFixed(2)} m/s²`],['Delivered motion rate',motion.rate.toFixed(1)+' Hz'],['Observed axis peaks',motion.peak.map(v=>(v/9.81).toFixed(2)+'g').join(' / ')],['Hardware range','Not exposed; peaks are lower bounds'],['Clipping',motion.clipSuspected?'Suspected flat top':'Not observed'],['3g caps',String(motion.capCount)],['Pose age at sample',motion.poseAge.toFixed(1)+' ms'],['Input', mode],['Permission',permission],['Motion permission',motionPermission],['Neutral β / γ',neutral?`${neutral.beta.toFixed(1)}° / ${neutral.gamma.toFixed(1)}°`:'Not calibrated'],['Screen rotation',orientation+'°'],['Orientation event rate',avg?(1000/avg).toFixed(1)+' Hz*':'No readings'],['Latest event interval',eventDt?eventDt.toFixed(1)+' ms':'—'],['Event delivery delay',latest?delivery.toFixed(1)+' ms':'—'],['Latest event → frame',latest?Math.max(0,now-latest.stamp).toFixed(1)+' ms':'—'],['Frame interval',frameDt.toFixed(1)+' ms'],['Filter time constant',(tau*1000)+' ms'],['Physics step',(STEP*1000).toFixed(2)+' ms'],['Canvas pixels',`${canvas.width} × ${canvas.height}`],['Pixel ratio',String(renderer.dpr)],['Cached scene builds',String(renderer.rebuilds)],['Audio',sound.ctx?.state??'Awaiting tap'],['Rotation-rate data',gyroFields],['Raw X / Y',`${raw.x.toFixed(2)}° / ${raw.y.toFixed(2)}°`],['Filtered X / Y',`${smooth.x.toFixed(2)}° / ${smooth.y.toFixed(2)}°`],['Ball speed',Math.hypot(ball.vx,ball.vy).toFixed(3)+' m/s'],['Captured timing records',String(rows.length)]];
+  const a=motion.last,c=motion.convention;
+  const values=[['Motion mode',motionMode],['Gravity sign',GRAVITY_SIGN[c.verdict]],['Rest residual',c.residual===null?'—':`${c.residual.toFixed(3)} m/s² (${c.count} samples)`],['Acceleration X / Y / up',`${a.x.toFixed(2)} / ${a.y.toFixed(2)} / ${a.z.toFixed(2)} m/s²`],['Delivered motion rate',motion.rate.toFixed(1)+' Hz'],['Observed axis peaks',motion.peak.map(v=>(v/9.81).toFixed(2)+'g').join(' / ')],['Hardware range','Not exposed; peaks are lower bounds'],['Clipping',motion.clipSuspected?'Suspected flat top':'Not observed'],['3g caps',String(motion.capCount)],['Pose age at sample',motion.poseAge.toFixed(1)+' ms'],['Input', mode],['Permission',permission],['Motion permission',motionPermission],['Neutral β / γ',neutral?`${neutral.beta.toFixed(1)}° / ${neutral.gamma.toFixed(1)}°`:'Not calibrated'],['Screen rotation',orientation+'°'],['Orientation event rate',avg?(1000/avg).toFixed(1)+' Hz*':'No readings'],['Latest event interval',eventDt?eventDt.toFixed(1)+' ms':'—'],['Event delivery delay',latest?delivery.toFixed(1)+' ms':'—'],['Latest event → frame',latest?Math.max(0,now-latest.stamp).toFixed(1)+' ms':'—'],['Frame interval',frameDt.toFixed(1)+' ms'],['Filter time constant',(tau*1000)+' ms'],['Physics step',(STEP*1000).toFixed(2)+' ms'],['Canvas pixels',`${canvas.width} × ${canvas.height}`],['Pixel ratio',String(renderer.dpr)],['Cached scene builds',String(renderer.rebuilds)],['Audio',sound.ctx?.state??'Awaiting tap'],['Rotation-rate data',gyroFields],['Raw X / Y',`${raw.x.toFixed(2)}° / ${raw.y.toFixed(2)}°`],['Filtered X / Y',`${smooth.x.toFixed(2)}° / ${smooth.y.toFixed(2)}°`],['Ball speed',Math.hypot(ball.vx,ball.vy).toFixed(3)+' m/s'],['Captured timing records',String(rows.length)]];
   values.push(['Ball / surface',`${BALLS[material].name} / ${SURFACES[surface].name}`],['Mass / diameter',`${(ball.m*1000).toFixed(2)} g / ${ball.r*2000} mm`],['Walls',WALL_MATERIALS[wallMaterial].name],['Board dimensions',`${layoutFor(material).width.toFixed(3)} × ${layoutFor(material).height.toFixed(3)} m`],['Inertia / mR²',BALLS[material].inertiaRatio.toFixed(4)],['Contact regime',ball.regime],['Slip speed',(ball.slip*1000).toFixed(1)+' mm/s'],['Spin magnitude',Math.hypot(ball.wx,ball.wy,ball.wz).toFixed(1)+' rad/s'],['Height above support',(Math.max(0,ball.supportGap)*1000).toFixed(2)+' mm'],['Terrain height',(ball.groundHeight*1000).toFixed(3)+' mm'],['Normal load / mg',(ball.normalLoad/(ball.m*9.81)).toFixed(3)],['Goal hold',ball.dwell.toFixed(2)+' / 3 s'],['Edges',openEdges?'Open':'Walled'],['Kinetic energy',(kineticEnergy(ball)*1000).toFixed(3)+' mJ']);
   if(surface==='sand')values.push(['Estimated sinkage',(granularState(ball,ball.normalLoad/(ball.m*9.81)).sinkage*1000).toFixed(2)+' mm']);
   $('metrics').replaceChildren(...values.flatMap(([label,value])=>{const a=document.createElement('dt'),b=document.createElement('dd');a.textContent=label;b.textContent=value;return[a,b];}));
@@ -250,7 +258,7 @@ function frame(now) {
   const contacts=[],startSimulationTime=ball.time;
   clock.tick(now,phase==='running',(dt,end)=>{
     filter(dt);elapsed+=dt;let event=null;
-    const segments=motionMode==='full'&&mode==='tilt'?motion.segments(end-dt*1000,end):[{dt,a:{x:0,y:0,z:0}}];
+    const segments=motionMode==='full'&&mode==='tilt'&&motion.verified?motion.segments(end-dt*1000,end):[{dt,a:{x:0,y:0,z:0}}];
     for(const segment of segments){event=advance(ball,smooth,segment.dt,{maxTilt:tiltBudget,acceleration:segment.a,onContact:e=>{if(contacts.length<40)contacts.push(e);}});if(event)break;}
     if(event?.type==='fall'||event?.type==='escape'){phase='falling';sound.capture();falls++;fallHole=event.hole??null;fallStarted=now;message(event.type==='escape'?'Over the edge.':'One more try.', 'Back to the start. Keep a lighter touch.');updateControls();return false;}
     if(event?.type==='win'){phase='won';sound.pause();message('Beautifully balanced.', `${clockText(elapsed)} · ${falls} ${falls===1?'fall':'falls'}`);updateControls();return false;}
@@ -262,8 +270,8 @@ function frame(now) {
     const radius=pad.clientWidth*.32;$('padKnob').style.transform=`translate(calc(-50% + ${clamp(smooth.x/tiltBudget,-1,1)*radius}px),calc(-50% + ${clamp(smooth.y/tiltBudget,-1,1)*radius}px))`;
     if($('diagnostics').open)diagnostics(now);
     const motionFresh=motion.lastStamp!==null&&now-motion.lastStamp<500;
-    $('motionStatus').textContent=mode!=='tilt'?'Enable phone tilt to use full motion.':motionFresh?'Phone acceleration is available.':motionPermission==='denied'?'Motion access was declined. Tilt is available; lift and shake need motion permission.':'No recent acceleration samples. Lift and shake are unavailable until readings resume.';
-    if(phase==='running'&&mode==='tilt'&&motionMode==='full')$('motionQuick').textContent=motionFresh?'Full motion':'No motion · tilt only';
+    $('motionStatus').textContent=mode!=='tilt'?'Enable phone tilt to use full motion.':!motionFresh?(motionPermission==='denied'?'Motion access was declined. Tilt is available; lift and shake need motion permission.':'No recent acceleration samples. Lift and shake are unavailable until readings resume.'):motion.verified?'Phone acceleration is available.':motion.convention.verdict==='unchecked'?'Phone acceleration is available. Calibrate to check its readings before full motion.':`Full motion is off. ${gravityProblem()} Tilt works; calibrate again to retry.`;
+    if(phase==='running'&&mode==='tilt'&&motionMode==='full')$('motionQuick').textContent=motionFresh&&motion.verified?'Full motion':'No motion · tilt only';
     if(motionOverlay){const a=motion.last;$('motionValues').textContent=`measured a ${a.x.toFixed(1)} / ${a.y.toFixed(1)} / ${a.z.toFixed(1)} m/s²\nN ${ball.normalLoad.toFixed(3)} N · ${ball.regime}\n${motion.rate.toFixed(0)} Hz · ${motion.clipSuspected?'CLIP?':'no clip seen'}${a.capped?' · 3g cap':''}`;const c=$('motionTrace').getContext('2d'),w=300,h=90;c.clearRect(0,0,w,h);for(const [key,col] of [['x','#e7b36d'],['y','#9de4c1'],['z','#90bfff']]){c.beginPath();c.strokeStyle=col;let first=true;for(const s of motion.rows){if(now-s.time>2500)continue;const x=w*(1-(now-s.time)/2500),y=h/2-s.a[key]/29.43*h*.45;if(first)c.moveTo(x,y);else c.lineTo(x,y);first=false;}c.stroke();}}
   }
   requestAnimationFrame(frame);

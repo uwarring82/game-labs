@@ -8,8 +8,22 @@ export function boardAcceleration(raw,beta,gamma,angle=0){
  return{x:x*Math.cos(t)+y*Math.sin(t),y:-x*Math.sin(t)+y*Math.cos(t),z};
 }
 export function capAcceleration(a,cap=MOTION_CAP){const m=Math.hypot(a.x,a.y,a.z),s=m>cap?cap/m:1;return{x:a.x*s,y:a.y*s,z:a.z*s,capped:s<1};}
+// accelerationIncludingGravity sign, measured while calibration holds still. The spec (and
+// Android) reports +g along the upward screen normal at rest. WebKit passes CoreMotion's −g
+// through unchanged, so every iPhone browser reports all three axes reversed. The mean reading
+// must match the β/γ prediction, or its negative, within the tolerance; otherwise it is unusable.
+export const GRAVITY_CHECK_TOLERANCE=.1*G,GRAVITY_CHECK_MIN=5;
+export function gravityConvention(measured,predicted,count,tolerance=GRAVITY_CHECK_TOLERANCE){
+ if(count<GRAVITY_CHECK_MIN)return{verdict:'no-data',sign:1,count,residual:null};
+ const miss=s=>Math.hypot(s*measured.x-predicted.x,s*measured.y-predicted.y,s*measured.z-predicted.z),sign=miss(1)<=miss(-1)?1:-1,residual=miss(sign);
+ return residual<=tolerance?{verdict:sign>0?'spec':'reversed',sign,count,residual,measured,predicted}:{verdict:'inconsistent',sign:1,count,residual,measured,predicted};
+}
 export class MotionInput{
- constructor(){this.poses=[];this.samples=[];this.rows=[];this.intervals=[];this.peak=[0,0,0];this.flat=[0,0,0];this.lastRaw=null;this.clipSuspected=false;this.lastStamp=null;this.last=zero();this.invalid=0;this.capCount=0;this.poseAge=0;}
+ constructor(){this.poses=[];this.samples=[];this.rows=[];this.intervals=[];this.peak=[0,0,0];this.flat=[0,0,0];this.lastRaw=null;this.clipSuspected=false;this.lastStamp=null;this.last=zero();this.invalid=0;this.capCount=0;this.poseAge=0;this.check=null;this.convention={verdict:'unchecked',sign:1,count:0,residual:null};}
+ get verified(){return this.convention.verdict==='spec'||this.convention.verdict==='reversed';}
+ beginGravityCheck(){this.check={count:0,measured:zero(),predicted:zero()};}
+ endGravityCheck(){const c=this.check??{count:0,measured:zero(),predicted:zero()},n=c.count||1,mean=v=>({x:v.x/n,y:v.y/n,z:v.z/n});this.check=null;return gravityConvention(mean(c.measured),mean(c.predicted),c.count);}
+ useConvention(result){this.convention=result;this.resetHold();}
  orientation(beta,gamma,time){if(![beta,gamma,time].every(Number.isFinite))return;this.poses.push({beta,gamma,time});if(this.poses.length>120)this.poses.shift();}
  poseAt(time){
   const p=this.poses;if(!p.length)return null;
@@ -27,16 +41,18 @@ export class MotionInput{
   if(this.lastStamp!==null){this.intervals.push(time-this.lastStamp);if(this.intervals.length>180)this.intervals.shift();}
   const values=[raw.x,raw.y,raw.z];values.forEach((v,i)=>{this.peak[i]=Math.max(this.peak[i],Math.abs(v));this.flat[i]=this.lastRaw&&Math.abs(v)>1.5*G&&Math.abs(v-this.lastRaw[i])<.051?this.flat[i]+1:0;if(this.flat[i]>=3)this.clipSuspected=true;});
   this.lastRaw=values;this.lastStamp=time;this.poseAge=pose.age;
-  const uncapped=boardAcceleration(raw,pose.beta,pose.gamma,angle),a=capAcceleration(uncapped);if(a.capped)this.capCount++;
+  if(this.check){const c=this.check,p=restingSpecificForce(pose.beta,pose.gamma);c.count++;for(const k of ['x','y','z']){c.measured[k]+=raw[k];c.predicted[k]+=p[k];}}
+  const sign=this.convention.sign,spec={x:sign*raw.x,y:sign*raw.y,z:sign*raw.z};
+  const uncapped=boardAcceleration(spec,pose.beta,pose.gamma,angle),a=capAcceleration(uncapped);if(a.capped)this.capCount++;
   const sourceGravity=physicalGravity(pose.beta,pose.gamma,angle),s={time,...a,sourceGravity};this.last=s;this.samples.push(s);if(this.samples.length>1200)this.samples.shift();
-  this.rows.push({time,raw:{x:raw.x,y:raw.y,z:raw.z},beta:pose.beta,gamma:pose.gamma,poseAge:pose.age,sourceGravity,uncapped,a:{x:a.x,y:a.y,z:a.z},capped:a.capped,clipSuspected:this.clipSuspected});if(this.rows.length>18000)this.rows.shift();return s;
+  this.rows.push({time,raw:{x:raw.x,y:raw.y,z:raw.z},gravitySign:sign,beta:pose.beta,gamma:pose.gamma,poseAge:pose.age,sourceGravity,uncapped,a:{x:a.x,y:a.y,z:a.z},capped:a.capped,clipSuspected:this.clipSuspected});if(this.rows.length>18000)this.rows.shift();return s;
  }
  at(time){const s=this.samples.findLast(s=>s.time<=time);return s&&time-s.time<=100?s:zero();}
  segments(start,end){const boundaries=[start,...this.samples.filter(s=>s.time>start&&s.time<end).map(s=>s.time),end],result=[];for(let i=1;i<boundaries.length;i++){const a=boundaries[i-1],b=boundaries[i],s=this.at(a);if(Number.isFinite(s.time)&&a<s.time+100&&b>s.time+100){result.push({dt:(s.time+100-a)/1000,a:s},{dt:(b-s.time-100)/1000,a:zero()});}else result.push({dt:(b-a)/1000,a:s});}return result;}
  clearRecording(){this.rows=[];this.intervals=[];this.peak=[0,0,0];this.flat=[0,0,0];this.lastRaw=null;this.lastStamp=null;this.clipSuspected=false;this.capCount=0;this.invalid=0;this.resetHold();}
  resetHold(){this.samples=[];this.last=zero();}
  get rate(){return this.intervals.length?1000/(this.intervals.reduce((a,b)=>a+b,0)/this.intervals.length):0;}
- report(){return{schema:'marble-relief-phone-test-v0.1',status:'unendorsed; device measurements only',sampleCount:this.rows.length,deliveredHz:this.rate,observedAbsoluteAxisPeaks:this.peak,hardwareRange:'not exposed by DeviceMotion; observed peaks are lower bounds',clipping:'suspected='+this.clipSuspected,cap: MOTION_CAP,capCount:this.capCount,invalid:this.invalid,samples:this.rows};}
+ report(){return{schema:'marble-relief-phone-test-v0.2',status:'unendorsed; device measurements only',sampleCount:this.rows.length,deliveredHz:this.rate,observedAbsoluteAxisPeaks:this.peak,hardwareRange:'not exposed by DeviceMotion; observed peaks are lower bounds',clipping:'suspected='+this.clipSuspected,cap: MOTION_CAP,capCount:this.capCount,invalid:this.invalid,gravityCheck:this.convention,samples:this.rows};}
 }
 // Deterministic acceleration fixture; not a gesture detector or player command.
 export function flickAcceleration(t,speed=.4,liftTime=.15,stopTime=.03){

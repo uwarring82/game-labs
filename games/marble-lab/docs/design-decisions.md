@@ -30,7 +30,8 @@ Owner: U. Warring. Current specification: Task Card “Relief” v0.1, 25 Septem
 5. The pocket regression checks 30 seconds of constant exit-directed tilt, then one reference pulse. It does not prove confinement against all possible resonant pumping sequences.
 6. Route acceptance covers all five balls on wood. Whole-board floor swaps are exploratory and may be impassable at the default budget.
 7. Full motion is translational inertia plus virtual tilt. Euler, Coriolis, centrifugal and sensor lever-arm terms are omitted; this is not a complete rotating six-DOF board model.
-8. No full 3D steep contact, grain-level sand, new selectable Relief materials, or gesture library. Oil film remains deferred.
+8. The accelerationIncludingGravity sign is measured during calibration, not inferred from the user agent. The spec and Android report +g face up; WebKit (every iPhone browser) reports −g on all three axes. A reading that matches neither sign within 0.1g turns full motion off; tilt-only still works.
+9. No full 3D steep contact, grain-level sand, new selectable Relief materials, or gesture library. Oil film remains deferred.
 
 ## Evidence
 

@@ -23,6 +23,7 @@ Prefer iPhone Safari and Android Chrome, including a lower-spec/no-gyroscope And
 | Observed axis peaks / suspected clipping | Pending | Pending |
 | Independently documented hardware range, if available | Unknown | Unknown |
 | Stationary baseline and pitched calibration | Pending | Pending |
+| Gravity sign at calibration (spec / reversed) and rest residual | Pending | Pending |
 | 30° tilt over 0.3 s: unintended in-plane acceleration below 0.3 m/s² | Pending | Pending |
 | Flick/toss repeatability at delivered sample rate | Pending | Pending |
 | Reference pulse and pocket escape | Pending | Pending |
@@ -31,6 +32,8 @@ Prefer iPhone Safari and Android Chrome, including a lower-spec/no-gyroscope And
 | Visual contrast, contours, wall heights and sound | Pending | Pending |
 
 Use Diagnostics → Clear motion → select scenario → perform motion → Export motion JSON. Record stationary baseline, fast tilt without intended translation, in-plane pulses and upward flicks. The export includes event/frame timing. Review raw exports before committing: they contain browser/device metadata. Observed peaks alone cannot establish accelerometer range. Browser timestamps cannot establish physical sensor-to-pixel latency.
+
+The first iPhone export (26 September 2026, phone lying flat) showed the reversed WebKit gravity sign: full motion read about −2g up at rest. Calibration now measures the sign; the phone measurements above still have to be repeated with the corrected build.
 
 If short flicks are unreliable at delivered rates, investigate longer waveforms rather than adding gesture detection. Keep full-motion fatigue and the tilt-only fallback in the physical play test.
 
