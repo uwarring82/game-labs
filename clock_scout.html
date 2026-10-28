@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Clock Scout · On-device time comparison</title>
+<style>
+:root{color-scheme:light dark;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--bg:#f5f7fa;--fg:#152338;--sub:#536579;--paper:#fff;--border:#dfe6ee;--blue:#1454aa;--green:#087e69} @media(prefers-color-scheme:dark){:root{--bg:#101722;--fg:#eff3fa;--sub:#a1adbb;--paper:#192332;--border:#344252;--blue:#86b7fa;--green:#74d8bd}}
+*{box-sizing:border-box}body{background:var(--bg);color:var(--fg);margin:0;padding:calc(20px + env(safe-area-inset-top)) 15px calc(45px + env(safe-area-inset-bottom));}main{max-width:860px;margin:auto}h1{font-size:1.65rem;line-height:1.2;margin:0 0 9px}h2{font-size:1.1rem;margin:0 0 10px}.sub,.hint{color:var(--sub)}.sub{margin:0 0 16px}.box{background:var(--paper);border:1px solid var(--border);border-radius:13px;padding:16px;margin:12px 0}.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}button,select{font:inherit;border-radius:9px;min-height:43px;padding:8px 13px;border:1px solid var(--border);background:var(--paper);color:var(--fg)}button.primary{background:#175cb5;border-color:#175cb5;color:white;font-weight:600}button:disabled{opacity:.4}button:focus-visible,select:focus-visible{outline:3px solid #6fb1ff}label{font-weight:600}.metric{display:flex;flex-direction:column;align-items:flex-start}.metric strong{font-size:1.2rem}#progress{font-variant-numeric:tabular-nums;color:var(--sub);padding-top:10px}.scroll{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:580px}th,td{text-align:left;border-bottom:1px solid var(--border);padding:9px 8px;font-size:.87rem;font-variant-numeric:tabular-nums}th{color:var(--sub);font-weight:600}td:first-child{font-weight:600}#plot{width:100%;height:auto;display:block;max-height:300px}.hint{font-size:.84rem}ul{padding-left:20px}li{margin:4px 0}.legend{display:flex;gap:15px;flex-wrap:wrap;margin:5px 0;color:var(--sub);font-size:.85rem}.dot{display:inline-block;border-radius:100%;width:9px;height:9px;margin-right:5px}.error{color:#c13c3c}details summary{cursor:pointer;font-weight:600}#raw{max-height:280px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}a{color:var(--blue)}.badge{display:inline-block;border:1px solid var(--border);border-radius:5px;padding:1px 5px;font-size:11px;color:var(--sub)}
+</style>
+</head>
+<body><main>
+<h1>Clock Scout <span class="badge">v0.1</span></h1>
+<p class="sub">First-pass comparison of this device's wall clock against three independent HTTPS time APIs. No sensor access, accounts or location permissions.</p>
+<section class="box">
+<h2>Measurement</h2>
+<div class="controls">
+<label for="network">Connection</label><select id="network"><option value="Wi-Fi">Wi-Fi</option><option value="Cellular">Cellular</option><option value="Other">Other / unknown</option></select>
+<label for="rounds">Rounds</label><select id="rounds"><option value="8">8</option><option value="20">20</option><option value="40">40</option></select>
+<button class="primary" id="start">Start probes</button><button id="stop" disabled>Stop</button><button id="csv" disabled>Export CSV</button>
+</div><div id="progress" role="status" aria-live="polite">Ready. The device clock is read locally when you start a probe.</div>
+</section>
+<section class="box"><h2>Current summary</h2><div class="scroll"><table><thead><tr><th>Provider</th><th>Offset (ms)*</th><th>Minimum RTT</th><th>Spread†</th><th>Valid / total</th></tr></thead><tbody id="summary"><tr><td colspan="5" class="hint">No observations yet.</td></tr></tbody></table></div>
+<p class="hint">* The median offset of the three lowest-delay samples, relative to the device's wall clock. Positive means server time appears ahead of the device. † Median absolute deviation of the low-delay offsets. This is not absolute UTC accuracy.</p></section>
+<section class="box"><h2>Individual observations</h2><canvas id="plot" width="780" height="300" role="img" aria-label="Scatter plot of measured offsets over time"></canvas><div class="legend"><span><i class="dot" style="background:#2e79bb"></i>UTCTime</span><span><i class="dot" style="background:#0a977e"></i>Hourora</span><span><i class="dot" style="background:#e47b2b"></i>Time.Now</span></div><p class="hint">Web-request estimates include uncertain server timestamp placement, network delay asymmetry and JavaScript scheduling. They are intended for scouting, not traceable synchronization.</p></section>
+<section class="box"><details><summary>Raw observations and failures</summary><pre id="raw">No observations yet.</pre></details></section>
+<section class="box"><h2>Interpretation</h2><ul><li><strong>RTT</strong> is measured with <code>performance.now()</code> across a complete HTTPS fetch and response parse.</li><li><strong>Offset</strong> is <code>server UTC − device UTC at the local RTT midpoint</code>. The server time is generated at an undocumented point of the request/response exchange, so a midpoint model introduces potential bias.</li><li><strong>RTT/2</strong> is a useful scale for network timing ambiguity, <em>not</em> a certified bound on error or server accuracy.</li><li>Browser request timestamps are not hardware timestamps. Do not extrapolate this probe to Core Motion acquisition timing or GNSS accuracy.</li><li>Repeat on Wi-Fi and cellular; compare the minimum-RTT subsets and the full CSV. Network caching, proxying, VPNs and thermal/load changes may affect outcomes.</li></ul>
+<p class="hint">Endpoints: <a href="https://utctime.app/api" target="_blank" rel="noopener">utctime.app</a>, <a href="https://hourora.app/en/developers" target="_blank" rel="noopener">hourora.app</a>, <a href="https://time.now/developer" target="_blank" rel="noopener">time.now</a>. Their published APIs allow cross-origin HTTPS access. Responses are fetched directly from your device; the page does not upload or store results elsewhere. Each query contacts the chosen provider.</p></section>
+</main>
+<script>
+'use strict';
+const providers=[
+ {id:'UTCTime',color:'#2e79bb',url:'https://utctime.app/api/now',read:j=>j.unix_ms},
+ {id:'Hourora',color:'#0a977e',url:'https://hourora.app/api/v1/time',read:j=>j.unixMs},
+ {id:'Time.Now',color:'#e47b2b',url:'https://time.now/developer/api/time?timezone=UTC',read:j=>Date.parse(j.utc_datetime)}
+];
+const $=s=>document.querySelector(s);let samples=[],running=false,abort=null;
+const med=a=>{if(!a.length)return NaN;let q=[...a].sort((x,y)=>x-y);return q.length%2?q[(q.length-1)/2]:(q[q.length/2-1]+q[q.length/2])/2};
+const fmt=(n,d=1)=>Number.isFinite(n)?n.toFixed(d):'—';
+function setup(){ $('#start').disabled=running;$('#stop').disabled=!running;$('#rounds').disabled=running;$('#network').disabled=running;$('#csv').disabled=!samples.length; }
+function progress(s){$('#progress').textContent=s;}
+async function probe(p,round,network){
+ const startedAt=new Date().toISOString(), u=new URL(p.url);u.searchParams.set('_scout',String(Date.now())+'-'+String(round));
+ const t1=Date.now(),p1=performance.now();let response,err='';let server=NaN;
+ const ac=new AbortController();abort=ac;const timeout=setTimeout(()=>ac.abort(),4500);
+ try{
+  response=await fetch(u.toString(),{cache:'no-store',mode:'cors',credentials:'omit',signal:ac.signal});
+  if(!response.ok)throw Error('HTTP '+response.status);
+  const data=await response.json();server=Number(p.read(data));
+  if(!Number.isFinite(server)||server<1e12)throw Error('Invalid server timestamp');
+ }catch(e){err=String(e.message||e)}finally{clearTimeout(timeout);}
+ const p4=performance.now(),t4=Date.now(),rtt=p4-p1;
+ const clockJump=(t4-t1)-rtt;
+ const estimate=err?NaN:server-(t1+rtt/2);
+ const record={time:startedAt,provider:p.id,network,round,t1_wall_ms:t1,t4_wall_ms:t4,p1_mono_ms:p1,p4_mono_ms:p4,server_unix_ms:server,RTT_ms:rtt,offset_ms:estimate,clock_jump_indicator_ms:clockJump,error:err};
+ samples.push(record);return record;
+}
+function summary(){
+ $('#summary').innerHTML=providers.map(p=>{let a=samples.filter(s=>s.provider===p.id),v=a.filter(s=>Number.isFinite(s.offset_ms)&&Math.abs(s.clock_jump_indicator_ms)<150).sort((a,b)=>a.RTT_ms-b.RTT_ms),low=v.slice(0,Math.min(3,v.length));
+ let o=med(low.map(s=>s.offset_ms)),spread=med(low.map(s=>Math.abs(s.offset_ms-o)));
+ return `<tr><td>${p.id}</td><td>${v.length?fmt(o,1):'—'}</td><td>${v.length?fmt(v[0].RTT_ms,1)+' ms':'—'}</td><td>${v.length?fmt(spread,1)+' ms':'—'}</td><td>${v.length} / ${a.length}</td></tr>`;
+ }).join('');
+ $('#raw').textContent=samples.slice(-75).map(s=>`${s.time} · ${s.provider} · round ${s.round} · ${s.network} · RTT ${fmt(s.RTT_ms)} ms · offset ${fmt(s.offset_ms)} ms · clock-step ${fmt(s.clock_jump_indicator_ms)} ms${s.error?' · ERROR '+s.error:''}`).join('\n')||'No observations yet.';
+ setup();draw();
+}
+function draw(){let c=$('#plot'),ctx=c.getContext('2d'),ratio=window.devicePixelRatio||1;let w=Math.max(320,Math.round(c.getBoundingClientRect().width)),h=275;
+ c.width=w*ratio;c.height=h*ratio;c.style.height=h+'px';ctx.setTransform(ratio,0,0,ratio,0,0);ctx.clearRect(0,0,w,h);
+ const v=samples.filter(s=>Number.isFinite(s.offset_ms)&&Math.abs(s.offset_ms)<10000);const left=56,right=w-13,top=14,bottom=h-33;
+ ctx.font='12px -apple-system, sans-serif';ctx.fillStyle=getComputedStyle(document.body).color;
+ if(!v.length){ctx.globalAlpha=.6;ctx.fillText('Start a measurement to see observations.',20,36);ctx.globalAlpha=1;return;}
+ let min=Math.min(...v.map(s=>s.offset_ms)),max=Math.max(...v.map(s=>s.offset_ms));let pad=Math.max(3,(max-min)*.15);min-=pad;max+=pad;
+ const xMin=Math.min(...v.map(s=>s.p1_mono_ms)),xMax=Math.max(...v.map(s=>s.p1_mono_ms));let dx=Math.max(1,xMax-xMin);
+ const x=s=>left+(s.p1_mono_ms-xMin)/dx*(right-left),y=z=>bottom-(z-min)/(max-min)*(bottom-top);
+ ctx.strokeStyle='#8b9aaa';ctx.globalAlpha=.45;ctx.lineWidth=1;
+ for(let i=0;i<=4;i++){let val=min+(max-min)*i/4,Y=y(val);ctx.beginPath();ctx.moveTo(left,Y);ctx.lineTo(right,Y);ctx.stroke();ctx.fillStyle=getComputedStyle(document.body).color;ctx.textAlign='right';ctx.fillText(fmt(val,0),left-7,Y+4)}
+ ctx.globalAlpha=1;ctx.textAlign='center';ctx.fillText('Elapsed time (s)',(left+right)/2,h-6);
+ ctx.save();ctx.translate(14,(top+bottom)/2);ctx.rotate(-Math.PI/2);ctx.fillText('Offset (ms)',0,0);ctx.restore();
+ ctx.textAlign='center';for(let i=0;i<=4;i++)ctx.fillText(fmt(dx/1000*i/4,1),left+(right-left)*i/4,bottom+18);
+ for(const p of providers){ctx.fillStyle=p.color;for(const s of v.filter(s=>s.provider===p.id)){ctx.beginPath();ctx.arc(x(s),y(s.offset_ms),3.2,0,Math.PI*2);ctx.fill();}}
+}
+const sleep=n=>new Promise(res=>setTimeout(res,n));
+async function start(){if(running)return;samples=[];running=true;setup();summary();let rounds=Number($('#rounds').value),network=$('#network').value;
+ for(let round=1;round<=rounds&&running;round++){
+  const group=[...providers];if(round%2===0)group.reverse();
+  for(const p of group){if(!running)break;progress(`Round ${round}/${rounds} · ${p.id} · ${network} · ${samples.length} queries recorded`);
+   await probe(p,round,network);summary();if(running)await sleep(250);
+  }
+ }
+ running=false;abort=null;setup();progress(`Finished: ${samples.length} requests; ${samples.filter(s=>s.error).length} failed. Compare Wi-Fi with cellular, then export each run.`);
+}
+function stop(){running=false;if(abort)abort.abort();progress('Stopping after current request …');}
+function csv(){if(!samples.length)return;let keys=Object.keys(samples[0]);let rows=[keys.join(',')];for(const rec of samples){rows.push(keys.map(k=>{let v=String(rec[k]??'');return '"'+v.replace(/"/g,'""')+'"'}).join(','));}
+ const blob=new Blob([rows.join('\n')+'\n'],{type:'text/csv;charset=utf-8'});let url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='clock-scout-'+new Date().toISOString().replace(/[:.]/g,'-')+'.csv';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),20000);
+}
+$('#start').addEventListener('click',start);$('#stop').addEventListener('click',stop);$('#csv').addEventListener('click',csv);window.addEventListener('resize',draw);setup();draw();
+</script>
+</body></html>
